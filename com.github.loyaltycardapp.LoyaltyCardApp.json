@@ -44,6 +44,10 @@
                     "type" : "archive",
                     "url" : "https://github.com/mchehab/zbar/archive/refs/tags/0.23.93.tar.gz",
                     "sha256" : "212dfab527894b8bcbcc7cd1d43d63f5604a07473d31a5f02889e372614ebe28"
+                },
+                {
+                    "type" : "shell",
+                    "commands" : ["autoreconf -fiv"]
                 }
             ]
         },
