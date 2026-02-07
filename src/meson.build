@@ -21,6 +21,7 @@ configure_file(
 
 loyalty_card_app_sources = [
   '__init__.py',
+  'camera_scanner.py',
   'main.py',
   'window.py',
 ]
