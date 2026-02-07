@@ -1,0 +1,14 @@
+{
+  "name": "loyalty-card-app",
+  "version": "0.1.0",
+  "description": "Loyalty Card App with fullscreen barcode display for scanning",
+  "scripts": {
+    "test": "jest",
+    "start": "npx serve src"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^30.2.0"
+  }
+}

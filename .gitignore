@@ -27,6 +27,7 @@ __pycache__/
 .flutter-plugins-dependencies
 .packages
 build/
-*.iml
-.idea/
 .metadata
+
+# Node
+node_modules/
