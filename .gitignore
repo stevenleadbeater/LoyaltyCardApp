@@ -1,10 +1,22 @@
+# Gas Town
 .runtime/
 .claude/
 .beads/
 .logs/
+
+# IntelliJ / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Build
 builddir/
 _build/
 .flatpak-builder/
+
+# Python
 *.pyc
 __pycache__/
 .pytest_cache/
