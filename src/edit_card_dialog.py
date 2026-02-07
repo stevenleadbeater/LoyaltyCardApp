@@ -4,7 +4,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
+from gi.repository import Adw, Gdk, GObject, Gtk
 
 # Predefined color palette for card themes
 CARD_COLORS = [
@@ -82,33 +82,18 @@ class EditCardDialog(Adw.Dialog):
         color_grid.set_selection_mode(Gtk.SelectionMode.NONE)
 
         self._color_buttons = []
-        for hex_color, color_name in CARD_COLORS:
+        self._color_css_provider = Gtk.CssProvider()
+        for i, (hex_color, color_name) in enumerate(CARD_COLORS):
+            css_class = f"color-swatch-{i}"
             button = Gtk.Button()
             button.set_size_request(48, 48)
             button.add_css_class("circular")
+            button.add_css_class(css_class)
             button.set_tooltip_text(color_name)
-
-            provider = Gtk.CssProvider()
-            css = f"""
-                button {{
-                    background-color: {hex_color};
-                    border: 3px solid transparent;
-                    min-width: 48px;
-                    min-height: 48px;
-                }}
-                button:hover {{
-                    background-color: {hex_color};
-                    opacity: 0.8;
-                }}
-            """
-            provider.load_from_string(css)
-            button.get_style_context().add_provider(
-                provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-            )
 
             button.connect("clicked", self._on_color_selected, hex_color)
             color_grid.append(button)
-            self._color_buttons.append((button, hex_color, provider))
+            self._color_buttons.append((button, hex_color, css_class))
 
         color_group.add(color_grid)
         content.append(color_group)
@@ -130,6 +115,25 @@ class EditCardDialog(Adw.Dialog):
         scrolled.set_vexpand(True)
         toolbar_view.set_content(scrolled)
 
+        # Preview CSS classes
+        self._preview_box.add_css_class("card-preview-box")
+        self._preview_label.add_css_class("card-preview-label")
+        self._preview_css_provider = Gtk.CssProvider()
+
+        # Add CSS providers to the display
+        display = Gdk.Display.get_default()
+        if display:
+            Gtk.StyleContext.add_provider_for_display(
+                display,
+                self._color_css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            )
+            Gtk.StyleContext.add_provider_for_display(
+                display,
+                self._preview_css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            )
+
         self._update_color_selection()
         self._update_preview_color()
         self._validate()
@@ -145,54 +149,39 @@ class EditCardDialog(Adw.Dialog):
         self._update_preview_color()
 
     def _update_color_selection(self):
-        for button, hex_color, provider in self._color_buttons:
-            if hex_color == self._selected_color:
-                css = f"""
-                    button {{
-                        background-color: {hex_color};
-                        border: 3px solid @accent_color;
-                        min-width: 48px;
-                        min-height: 48px;
-                    }}
-                    button:hover {{
-                        background-color: {hex_color};
-                        opacity: 0.8;
-                    }}
-                """
-            else:
-                css = f"""
-                    button {{
-                        background-color: {hex_color};
-                        border: 3px solid transparent;
-                        min-width: 48px;
-                        min-height: 48px;
-                    }}
-                    button:hover {{
-                        background-color: {hex_color};
-                        opacity: 0.8;
-                    }}
-                """
-            provider.load_from_string(css)
+        css_parts = []
+        for button, hex_color, css_class in self._color_buttons:
+            border = (
+                "3px solid @accent_color"
+                if hex_color == self._selected_color
+                else "3px solid transparent"
+            )
+            css_parts.append(f"""
+                .{css_class} {{
+                    background-color: {hex_color};
+                    border: {border};
+                    min-width: 48px;
+                    min-height: 48px;
+                }}
+                .{css_class}:hover {{
+                    background-color: {hex_color};
+                    opacity: 0.8;
+                }}
+            """)
+        self._color_css_provider.load_from_string("".join(css_parts))
 
     def _update_preview_color(self):
-        provider = Gtk.CssProvider()
         css = f"""
-            box {{
+            .card-preview-box {{
                 background-color: {self._selected_color};
                 border-radius: 12px;
                 padding: 16px;
             }}
-            label {{
+            .card-preview-label {{
                 color: white;
             }}
         """
-        provider.load_from_string(css)
-        self._preview_box.get_style_context().add_provider(
-            provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-        self._preview_label.get_style_context().add_provider(
-            provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+        self._preview_css_provider.load_from_string(css)
 
     def _validate(self):
         name = self._name_row.get_text().strip()
