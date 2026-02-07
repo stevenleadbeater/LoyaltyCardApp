@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Loyalty Cards
+Comment=Manage your loyalty and membership cards
+Exec=loyalty-card-app
+Icon=com.github.loyaltycardapp.LoyaltyCardApp
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupNotify=true

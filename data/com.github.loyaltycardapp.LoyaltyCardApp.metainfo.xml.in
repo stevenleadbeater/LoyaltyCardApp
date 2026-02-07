@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.loyaltycardapp.LoyaltyCardApp</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Loyalty Cards</name>
+  <summary>Manage your loyalty and membership cards</summary>
+  <description>
+    <p>
+      A mobile-friendly application for managing loyalty cards, membership cards,
+      and store reward programs. Keep all your cards in one place on your phone.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Store loyalty card barcodes and QR codes</li>
+      <li>Adaptive layout for mobile and desktop</li>
+      <li>Native GNOME/Phosh experience</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.github.loyaltycardapp.LoyaltyCardApp.desktop</launchable>
+
+  <url type="homepage">https://github.com/loyaltycardapp/loyalty-card-app</url>
+  <url type="bugtracker">https://github.com/loyaltycardapp/loyalty-card-app/issues</url>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.1.0" date="2026-02-07">
+      <description>
+        <p>Initial release with basic project scaffold.</p>
+      </description>
+    </release>
+  </releases>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </recommends>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+</component>

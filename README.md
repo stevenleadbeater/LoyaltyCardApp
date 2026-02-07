@@ -1,1 +1,26 @@
 # Loyalty Card App
+
+A GNOME mobile app for managing loyalty cards and membership cards. Built with GTK4 and libadwaita for adaptive mobile/desktop UI, targeting Phosh/GNOME mobile.
+
+## Building
+
+```bash
+meson setup builddir
+meson compile -C builddir
+meson install -C builddir
+```
+
+## Building with Flatpak
+
+```bash
+flatpak-builder --user --install --force-clean _build com.github.loyaltycardapp.LoyaltyCardApp.json
+flatpak run com.github.loyaltycardapp.LoyaltyCardApp
+```
+
+## Stack
+
+- **Language:** Python 3
+- **UI Toolkit:** GTK4 + libadwaita
+- **Build System:** Meson
+- **Packaging:** Flatpak
+- **Target:** GNOME mobile (Phosh) and desktop

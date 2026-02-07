@@ -1,0 +1,9 @@
+.runtime/
+.claude/
+.beads/
+.logs/
+builddir/
+_build/
+.flatpak-builder/
+*.pyc
+__pycache__/
