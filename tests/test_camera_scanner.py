@@ -17,10 +17,12 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from camera_scanner import (
-    PIPELINE_DESC,
+    PIPELINE_FALLBACK,
+    PIPELINE_PORTAL_TEMPLATE,
     SUPPORTED_FORMATS,
     ZBAR_FORMAT_MAP,
     CameraScannerPage,
+    _have_xdp_portal,
 )
 
 
@@ -64,20 +66,45 @@ class TestSupportedFormats(unittest.TestCase):
             self.assertIn(fmt, SUPPORTED_FORMATS)
 
 
-class TestPipelineDescription(unittest.TestCase):
-    """Tests for the GStreamer pipeline description."""
+class TestPipelineDescriptions(unittest.TestCase):
+    """Tests for the GStreamer pipeline descriptions."""
 
-    def test_contains_v4l2src(self):
-        self.assertIn("v4l2src", PIPELINE_DESC)
+    def test_portal_template_contains_pipewiresrc(self):
+        self.assertIn("pipewiresrc", PIPELINE_PORTAL_TEMPLATE)
 
-    def test_contains_zbar(self):
-        self.assertIn("zbar", PIPELINE_DESC)
+    def test_portal_template_contains_fd_placeholder(self):
+        self.assertIn("{fd}", PIPELINE_PORTAL_TEMPLATE)
 
-    def test_contains_gtk4paintablesink(self):
-        self.assertIn("gtk4paintablesink", PIPELINE_DESC)
+    def test_portal_template_contains_zbar(self):
+        self.assertIn("zbar", PIPELINE_PORTAL_TEMPLATE)
 
-    def test_contains_videoconvert(self):
-        self.assertIn("videoconvert", PIPELINE_DESC)
+    def test_portal_template_contains_gtk4paintablesink(self):
+        self.assertIn("gtk4paintablesink", PIPELINE_PORTAL_TEMPLATE)
+
+    def test_portal_template_fd_formatting(self):
+        result = PIPELINE_PORTAL_TEMPLATE.format(fd=42)
+        self.assertIn("fd=42", result)
+        self.assertNotIn("{fd}", result)
+
+    def test_fallback_contains_autovideosrc(self):
+        self.assertIn("autovideosrc", PIPELINE_FALLBACK)
+
+    def test_fallback_contains_zbar(self):
+        self.assertIn("zbar", PIPELINE_FALLBACK)
+
+    def test_fallback_contains_gtk4paintablesink(self):
+        self.assertIn("gtk4paintablesink", PIPELINE_FALLBACK)
+
+    def test_fallback_contains_videoconvert(self):
+        self.assertIn("videoconvert", PIPELINE_FALLBACK)
+
+
+class TestHaveXdpPortal(unittest.TestCase):
+    """Tests for the portal availability check."""
+
+    def test_returns_bool(self):
+        result = _have_xdp_portal()
+        self.assertIsInstance(result, bool)
 
 
 class TestCameraScannerPageInit(unittest.TestCase):

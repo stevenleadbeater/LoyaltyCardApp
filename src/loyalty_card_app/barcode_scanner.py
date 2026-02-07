@@ -121,11 +121,61 @@ class BarcodeScannerPage(Adw.NavigationPage):
             return
 
         Gst.init(None)
+        self._status_label.set_label("Requesting camera access\u2026")
 
+        # Try portal-based camera access first (works inside Flatpak sandbox)
+        try:
+            gi.require_version("Xdp", "1.0")
+            from gi.repository import Xdp
+
+            self._portal = Xdp.Portal.new()
+            self._portal.access_camera(
+                None,
+                Xdp.CameraFlags.NONE,
+                None,
+                self._on_camera_portal_done,
+            )
+        except (ValueError, ImportError):
+            # Portal not available, use direct camera access
+            self._build_pipeline_with_source(
+                Gst.ElementFactory.make("autovideosrc", "camera")
+            )
+
+    def _on_camera_portal_done(self, portal, result):
+        """Handle camera portal access response."""
+        try:
+            granted = portal.access_camera_finish(result)
+        except GLib.Error:
+            granted = False
+
+        if not granted:
+            self._status_label.set_label(
+                "Camera permission denied. Check settings."
+            )
+            return
+
+        try:
+            pw_fd = portal.open_pipewire_remote_for_camera()
+        except GLib.Error:
+            # Fall back to direct camera access
+            self._build_pipeline_with_source(
+                Gst.ElementFactory.make("autovideosrc", "camera")
+            )
+            return
+
+        src = Gst.ElementFactory.make("pipewiresrc", "camera")
+        if src is None:
+            self._build_pipeline_with_source(
+                Gst.ElementFactory.make("autovideosrc", "camera")
+            )
+            return
+        src.set_property("fd", pw_fd)
+        self._build_pipeline_with_source(src)
+
+    def _build_pipeline_with_source(self, src):
+        """Build and start the full GStreamer pipeline with the given video source."""
         self._pipeline = Gst.Pipeline.new("barcode-scanner")
 
-        # Camera source
-        src = Gst.ElementFactory.make("autovideosrc", "camera")
         convert1 = Gst.ElementFactory.make("videoconvert", "convert1")
         tee = Gst.ElementFactory.make("tee", "tee")
 
@@ -185,6 +235,8 @@ class BarcodeScannerPage(Adw.NavigationPage):
             self._status_label.set_label("Failed to start camera")
             self._stop_pipeline()
             return
+
+        self._status_label.set_label("Point camera at a barcode")
 
         # Start pulling frames for display
         self._frame_timeout_id = GLib.timeout_add(33, self._pull_frame)

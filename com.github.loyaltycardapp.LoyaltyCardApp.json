@@ -9,7 +9,8 @@
         "--socket=fallback-x11",
         "--socket=wayland",
         "--device=dri",
-        "--device=all"
+        "--device=all",
+        "--talk-name=org.freedesktop.portal.Camera"
     ],
     "cleanup" : [
         "/include",

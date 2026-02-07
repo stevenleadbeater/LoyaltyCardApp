@@ -6,8 +6,9 @@
 """Camera barcode scanner page.
 
 Uses GStreamer with the zbar element for real-time barcode detection
-from the device camera. Displays a live viewfinder and emits a signal
-when a barcode is successfully decoded.
+from the device camera. Accesses the camera through the
+xdg-desktop-portal Camera portal for Flatpak compatibility, falling
+back to autovideosrc for non-sandboxed environments.
 """
 
 import gi
@@ -35,14 +36,35 @@ ZBAR_FORMAT_MAP = {
 # Formats we accept (from the issue requirements).
 SUPPORTED_FORMATS = frozenset(ZBAR_FORMAT_MAP.values())
 
-PIPELINE_DESC = (
-    "v4l2src name=src ! "
+# Pipeline template for portal-based camera access via PipeWire.
+# The fd placeholder is filled at runtime after portal negotiation.
+PIPELINE_PORTAL_TEMPLATE = (
+    "pipewiresrc fd={fd} ! "
     "videoconvert ! "
-    "video/x-raw,format=RGB,width=640,height=480,framerate=30/1 ! "
     "zbar name=zbar ! "
     "videoconvert ! "
     "gtk4paintablesink name=sink"
 )
+
+# Fallback pipeline for non-sandboxed environments.
+PIPELINE_FALLBACK = (
+    "autovideosrc ! "
+    "videoconvert ! "
+    "zbar name=zbar ! "
+    "videoconvert ! "
+    "gtk4paintablesink name=sink"
+)
+
+
+def _have_xdp_portal():
+    """Check if the Xdp (libportal) camera portal is available."""
+    try:
+        gi.require_version("Xdp", "1.0")
+        from gi.repository import Xdp  # noqa: F401
+
+        return True
+    except (ValueError, ImportError):
+        return False
 
 
 class CameraScannerPage(Adw.NavigationPage):
@@ -134,9 +156,58 @@ class CameraScannerPage(Adw.NavigationPage):
         """Start the camera pipeline and begin scanning."""
         self.stop()
         self._scanned = False
+        self._stack.set_visible_child_name("viewfinder")
+        self._hint.set_label("Requesting camera access\u2026")
+
+        if _have_xdp_portal():
+            self._request_camera_portal()
+        else:
+            self._start_pipeline_fallback()
+
+    def _request_camera_portal(self):
+        """Request camera access through xdg-desktop-portal."""
+        from gi.repository import Xdp
+
+        self._portal = Xdp.Portal.new()
+        self._portal.access_camera(
+            None,
+            Xdp.CameraFlags.NONE,
+            None,
+            self._on_camera_access_done,
+        )
+
+    def _on_camera_access_done(self, portal, result):
+        """Handle the camera portal access response."""
+        try:
+            granted = portal.access_camera_finish(result)
+        except GLib.Error:
+            granted = False
+
+        if not granted:
+            self._status_page.set_description(
+                "Camera permission was denied. "
+                "Check your system settings and try again."
+            )
+            self._stack.set_visible_child_name("error")
+            return
 
         try:
-            self._pipeline = Gst.parse_launch(PIPELINE_DESC)
+            pw_fd = portal.open_pipewire_remote_for_camera()
+        except GLib.Error:
+            self._start_pipeline_fallback()
+            return
+
+        pipeline_desc = PIPELINE_PORTAL_TEMPLATE.format(fd=pw_fd)
+        self._launch_pipeline(pipeline_desc)
+
+    def _start_pipeline_fallback(self):
+        """Start pipeline using autovideosrc (non-sandboxed fallback)."""
+        self._launch_pipeline(PIPELINE_FALLBACK)
+
+    def _launch_pipeline(self, pipeline_desc):
+        """Create and start a GStreamer pipeline from a description string."""
+        try:
+            self._pipeline = Gst.parse_launch(pipeline_desc)
         except GLib.Error:
             self._stack.set_visible_child_name("error")
             return
@@ -160,6 +231,7 @@ class CameraScannerPage(Adw.NavigationPage):
             self._stack.set_visible_child_name("error")
             return
 
+        self._hint.set_label("Point camera at a barcode")
         self._stack.set_visible_child_name("viewfinder")
 
     def stop(self):
