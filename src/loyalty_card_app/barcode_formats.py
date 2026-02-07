@@ -1,6 +1,5 @@
 """Barcode format definitions and validation for loyalty card app."""
 
-import re
 from enum import Enum
 
 
@@ -119,7 +118,7 @@ def _validate_code128(value: str) -> str | None:
     if len(value) > 80:
         return "Code 128 value is too long (max 80 characters)"
     for ch in value:
-        if ord(ch) < 0 or ord(ch) > 127:
+        if ord(ch) > 127:
             return "Code 128 supports only ASCII characters (0-127)"
     return None
 
