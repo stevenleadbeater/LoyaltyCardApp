@@ -224,12 +224,11 @@ class CameraScannerPage(Adw.NavigationPage):
         bus.add_signal_watch()
         self._bus_watch_id = bus.connect("message", self._on_bus_message)
 
-        ret = self._pipeline.set_state(Gst.State.PLAYING)
-        if ret == Gst.StateChangeReturn.FAILURE:
-            self._pipeline.set_state(Gst.State.NULL)
-            self._pipeline = None
-            self._stack.set_visible_child_name("error")
-            return
+        self._pipeline.set_state(Gst.State.PLAYING)
+        # Don't check the return value here — pipewiresrc often returns
+        # FAILURE synchronously while the async state change is still in
+        # progress.  Real errors will arrive on the bus and be handled
+        # by _on_bus_message.
 
         self._hint.set_label("Point camera at a barcode")
         self._stack.set_visible_child_name("viewfinder")
