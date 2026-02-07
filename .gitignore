@@ -15,6 +15,7 @@ out/
 builddir/
 _build/
 .flatpak-builder/
+dist/
 
 # Python
 *.pyc
