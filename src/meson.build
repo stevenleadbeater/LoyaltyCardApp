@@ -22,8 +22,22 @@ configure_file(
 loyalty_card_app_sources = [
   '__init__.py',
   'camera_scanner.py',
+  'card_detail.py',
+  'card_manager.py',
+  'card_store.py',
+  'delete_card_dialog.py',
+  'edit_card_dialog.py',
   'main.py',
   'window.py',
 ]
 
 install_data(loyalty_card_app_sources, install_dir: moduledir)
+
+install_data(
+  [
+    'loyalty_card_app/barcode_entry.py',
+    'loyalty_card_app/barcode_formats.py',
+    'loyalty_card_app/barcode_scanner.py',
+  ],
+  install_dir: moduledir,
+)

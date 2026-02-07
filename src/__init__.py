@@ -1,7 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from .card_detail import CardDetailPage
 from .card_manager import CardManager
+from .card_store import CardStore
 from .delete_card_dialog import DeleteCardDialog
 from .edit_card_dialog import EditCardDialog
 
-__all__ = ["CardManager", "DeleteCardDialog", "EditCardDialog"]
+__all__ = [
+    "CardDetailPage",
+    "CardManager",
+    "CardStore",
+    "DeleteCardDialog",
+    "EditCardDialog",
+]
