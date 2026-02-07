@@ -31,6 +31,10 @@ setup-x86_64:
 
 # Install SDK and runtime for aarch64 (requires qemu-user-static on x86_64 host)
 setup-aarch64:
+	@command -v qemu-aarch64-static >/dev/null 2>&1 || \
+		{ echo "Error: qemu-user-static is required for aarch64 cross-builds"; exit 1; }
+	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+	flatpak --user remote-modify --no-filter flathub
 	flatpak install --user -y --arch=aarch64 flathub $(SDK) $(RUNTIME)
 
 # Build for x86_64
