@@ -20,3 +20,13 @@ _build/
 *.pyc
 __pycache__/
 .pytest_cache/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+.idea/
+.metadata
