@@ -1,14 +1,13 @@
 # Dockerfile for building aarch64 flatpak bundles via QEMU emulation
 #
-# This runs natively on aarch64 (emulated via qemu-user-static/binfmt_misc
-# on x86_64 hosts) and produces a .flatpak bundle for sideloading onto
-# aarch64 devices like the PostmarketOS OnePlus 6T.
+# The flatpak-builder step runs at `docker run --privileged` time
+# (not during `docker build`) because bwrap needs user namespaces.
 #
 # Usage (from Makefile):
-#   docker buildx build --platform linux/arm64 \
-#     -f Dockerfile.aarch64-builder -o dist/ .
+#   docker build --platform linux/arm64 -f Dockerfile.aarch64-builder -t builder --target builder .
+#   docker run --rm --privileged --platform linux/arm64 -v ./dist:/out builder
 
-FROM arm64v8/fedora:41
+FROM arm64v8/fedora:41 AS builder
 
 RUN dnf install -y \
     flatpak \
@@ -28,17 +27,12 @@ WORKDIR /build
 # Copy the full app source tree
 COPY . /build/
 
-# Build the flatpak
-RUN flatpak-builder --repo=/build/repo --force-clean --disable-rofiles-fuse --disable-sandbox \
+# The build + bundle steps run at container start (needs --privileged for bwrap)
+CMD flatpak-builder --repo=/build/repo --force-clean --disable-rofiles-fuse \
     /build/build-dir \
-    com.github.loyaltycardapp.LoyaltyCardApp.json
-
-# Create the .flatpak bundle
-RUN mkdir -p /build/dist && \
+    com.github.loyaltycardapp.LoyaltyCardApp.json && \
+    mkdir -p /build/dist && \
     flatpak build-bundle /build/repo \
     /build/dist/com.github.loyaltycardapp.LoyaltyCardApp-aarch64.flatpak \
-    com.github.loyaltycardapp.LoyaltyCardApp
-
-# Output stage: only the bundle
-FROM scratch
-COPY --from=0 /build/dist/*.flatpak /
+    com.github.loyaltycardapp.LoyaltyCardApp && \
+    cp /build/dist/*.flatpak /out/

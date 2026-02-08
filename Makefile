@@ -40,11 +40,17 @@ build-x86_64: setup-x86_64
 		$(BUILDDIR_X86_64) $(MANIFEST)
 
 # Build for aarch64 inside Docker container with QEMU emulation
+# Two steps: docker build prepares the image with SDK, docker run --privileged
+# executes flatpak-builder (bwrap needs user namespaces)
 build-aarch64: setup-binfmt
 	mkdir -p $(BUNDLE_DIR)
-	docker buildx build --platform linux/arm64 \
+	docker build --platform linux/arm64 \
 		-f Dockerfile.aarch64-builder \
-		--output type=local,dest=$(BUNDLE_DIR)/ .
+		-t $(DOCKER_IMAGE) .
+	docker run --rm --privileged --platform linux/arm64 \
+		-v $(CURDIR)/$(BUNDLE_DIR):/out \
+		$(DOCKER_IMAGE)
+	@echo "Bundle created: $(BUNDLE_DIR)/$(APP_ID)-aarch64.flatpak"
 	@echo "Bundle created: $(BUNDLE_DIR)/$(APP_ID)-aarch64.flatpak"
 
 # Create .flatpak bundle for x86_64
