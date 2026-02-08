@@ -39,13 +39,15 @@ WORKDIR /build
 COPY . /build/
 
 # Pre-download sources during docker build (QEMU-emulated curl is too slow)
-# flatpak-builder caches by sha256 in .flatpak-builder/downloads/
-RUN mkdir -p /build/.flatpak-builder/downloads && \
-    curl -L -o /build/.flatpak-builder/downloads/212dfab527894b8bcbcc7cd1d43d63f5604a07473d31a5f02889e372614ebe28 \
+# flatpak-builder cache format: downloads/{sha256}/{filename}
+RUN mkdir -p /build/.flatpak-builder/downloads/212dfab527894b8bcbcc7cd1d43d63f5604a07473d31a5f02889e372614ebe28 && \
+    curl -L -o /build/.flatpak-builder/downloads/212dfab527894b8bcbcc7cd1d43d63f5604a07473d31a5f02889e372614ebe28/0.23.93.tar.gz \
       https://github.com/mchehab/zbar/archive/refs/tags/0.23.93.tar.gz && \
-    curl -L -o /build/.flatpak-builder/downloads/3d386af3d1dbd1a06c74a6251250c269b481e703f0e3255ba89ef6c1e063afea \
+    mkdir -p /build/.flatpak-builder/downloads/3d386af3d1dbd1a06c74a6251250c269b481e703f0e3255ba89ef6c1e063afea && \
+    curl -L -o /build/.flatpak-builder/downloads/3d386af3d1dbd1a06c74a6251250c269b481e703f0e3255ba89ef6c1e063afea/gst-plugins-bad-1.24.12.tar.xz \
       https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-1.24.12.tar.xz && \
-    curl -L -o /build/.flatpak-builder/downloads/de801ee349ed3c255a9af3c01b1a401fab5b3fc1c35eb2fd7dfb35d4b8194d7f \
+    mkdir -p /build/.flatpak-builder/downloads/de801ee349ed3c255a9af3c01b1a401fab5b3fc1c35eb2fd7dfb35d4b8194d7f && \
+    curl -L -o /build/.flatpak-builder/downloads/de801ee349ed3c255a9af3c01b1a401fab5b3fc1c35eb2fd7dfb35d4b8194d7f/libportal-0.9.1.tar.xz \
       https://github.com/flatpak/libportal/releases/download/0.9.1/libportal-0.9.1.tar.xz
 
 # The build + bundle steps run at container start (needs --privileged for bwrap)
