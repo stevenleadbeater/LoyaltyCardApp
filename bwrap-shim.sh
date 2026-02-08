@@ -14,6 +14,25 @@ log() { echo "bwrap-shim: $*" >&2; }
 
 log "invoked with $# args: $*"
 
+# Handle --args FD: bwrap reads NUL-separated args from a file descriptor.
+# flatpak-builder uses this to pass all bind/env/etc options via fd.
+# We expand them onto the command line and re-exec ourselves.
+if [ "$1" = "--args" ]; then
+    FD="$2"
+    shift 2
+    log "expanding --args from fd $FD"
+    COMBINED=$(mktemp)
+    trap "rm -f $COMBINED" EXIT
+    cat <&"$FD" > "$COMBINED"
+    for ARG in "$@"; do
+        printf '%s\0' "$ARG" >> "$COMBINED"
+    done
+    xargs -0 "$0" < "$COMBINED"
+    EXIT=$?
+    rm -f "$COMBINED"
+    exit $EXIT
+fi
+
 # Collect mount operations in a temp file (one per line, tab-separated)
 MOUNTS=$(mktemp)
 trap "rm -f $MOUNTS" EXIT
