@@ -12,8 +12,12 @@ FROM arm64v8/fedora:41 AS builder
 RUN dnf install -y \
     flatpak \
     flatpak-builder \
+    bubblewrap \
     git \
     && dnf clean all
+
+# Make bwrap setuid — user namespaces don't work under QEMU emulation
+RUN chmod u+s /usr/bin/bwrap
 
 RUN flatpak remote-add --if-not-exists flathub \
     https://flathub.org/repo/flathub.flatpakrepo
