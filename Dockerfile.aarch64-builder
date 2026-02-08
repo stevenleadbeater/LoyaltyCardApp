@@ -20,10 +20,12 @@ RUN dnf install -y \
     gettext-devel \
     && dnf clean all
 
-# Replace bwrap with a no-op passthrough — user namespaces don't work
-# under QEMU emulation. bwrap is called as: bwrap [opts...] -- cmd [args...]
+# Replace bwrap with a smart shim — user namespaces don't work under QEMU
+# emulation. The shim processes --bind/--ro-bind/--symlink/--setenv/etc. args
+# and applies them via unshare -m (mount namespace only, no user ns needed).
+COPY bwrap-shim.sh /usr/bin/bwrap-shim.sh
 RUN mv /usr/bin/bwrap /usr/bin/bwrap.real && \
-    printf '#!/bin/sh\nwhile [ "$1" != "--" ] && [ $# -gt 0 ]; do shift; done\nshift\nexec "$@"\n' > /usr/bin/bwrap && \
+    mv /usr/bin/bwrap-shim.sh /usr/bin/bwrap && \
     chmod +x /usr/bin/bwrap
 
 RUN flatpak remote-add --if-not-exists flathub \
