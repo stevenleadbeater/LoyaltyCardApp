@@ -13,6 +13,7 @@ RUN dnf install -y \
     flatpak \
     flatpak-builder \
     bubblewrap \
+    util-linux \
     git \
     autoconf \
     automake \

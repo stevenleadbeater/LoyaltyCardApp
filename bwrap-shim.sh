@@ -37,6 +37,19 @@ fi
 MOUNTS=$(mktemp)
 trap "rm -f $MOUNTS" EXIT
 
+# Save host PATH before --setenv overwrites it
+export _ORIG_PATH="$PATH"
+
+# Locate mount binary now (before PATH gets clobbered)
+_MOUNT_BIN=$(command -v mount 2>/dev/null)
+if [ -z "$_MOUNT_BIN" ]; then
+    for _p in /usr/bin/mount /usr/sbin/mount /sbin/mount /bin/mount; do
+        [ -x "$_p" ] && _MOUNT_BIN="$_p" && break
+    done
+fi
+export _MOUNT_BIN
+log "mount binary: ${_MOUNT_BIN:-NOT FOUND}"
+
 CHDIR=""
 
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do
@@ -107,8 +120,10 @@ export _BWRAP_CHDIR="$CHDIR"
 if unshare -m true 2>/dev/null; then
     log "unshare -m works, using mount namespace"
     exec unshare -m sh -c '
-        # Restore sbin dirs — flatpak-builder --setenv PATH strips them
-        PATH="/usr/sbin:/sbin:$PATH"
+        # Restore host PATH and use saved mount binary path
+        PATH="$_ORIG_PATH"
+        M="$_MOUNT_BIN"
+        [ -z "$M" ] && echo "bwrap-shim: FATAL: no mount binary found" >&2 && exit 1
         while IFS="	" read -r OP A1 A2; do
             case "$OP" in
                 BIND|ROBIND)
@@ -119,7 +134,7 @@ if unshare -m true 2>/dev/null; then
                         mkdir -p "$(dirname "$A2")" 2>/dev/null || true
                         touch "$A2" 2>/dev/null || true
                     fi
-                    mount --bind "$A1" "$A2"
+                    "$M" --bind "$A1" "$A2"
                     ;;
                 TRYBIND)
                     [ -e "$A1" ] || continue
@@ -129,7 +144,7 @@ if unshare -m true 2>/dev/null; then
                         mkdir -p "$(dirname "$A2")" 2>/dev/null || true
                         touch "$A2" 2>/dev/null || true
                     fi
-                    mount --bind "$A1" "$A2" 2>/dev/null || true
+                    "$M" --bind "$A1" "$A2" 2>/dev/null || true
                     ;;
                 SYMLINK)
                     mkdir -p "$(dirname "$A2")" 2>/dev/null || true
@@ -137,15 +152,15 @@ if unshare -m true 2>/dev/null; then
                     ;;
                 TMPFS)
                     mkdir -p "$A1" 2>/dev/null || true
-                    mount -t tmpfs tmpfs "$A1"
+                    "$M" -t tmpfs tmpfs "$A1"
                     ;;
                 PROC)
                     mkdir -p "$A1" 2>/dev/null || true
-                    mount -t proc proc "$A1"
+                    "$M" -t proc proc "$A1"
                     ;;
                 DEV)
                     mkdir -p "$A1" 2>/dev/null || true
-                    mount --bind /dev "$A1"
+                    "$M" --bind /dev "$A1"
                     ;;
             esac
         done < "$_BWRAP_MOUNTS"
