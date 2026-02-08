@@ -14,6 +14,10 @@ RUN dnf install -y \
     flatpak-builder \
     bubblewrap \
     git \
+    autoconf \
+    automake \
+    libtool \
+    gettext-devel \
     && dnf clean all
 
 # Replace bwrap with a no-op passthrough — user namespaces don't work
