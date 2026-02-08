@@ -1,0 +1,28 @@
+# Build artifacts
+builddir/
+_build/
+build/
+dist/
+.flatpak-builder/
+
+# Gas Town / CI
+.runtime/
+.claude/
+.beads/
+.logs/
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+
+# Python cache
+__pycache__/
+.pytest_cache/
+
+# Flutter/Dart
+.dart_tool/
+
+# Git
+.git/

@@ -1,0 +1,44 @@
+# Dockerfile for building aarch64 flatpak bundles via QEMU emulation
+#
+# This runs natively on aarch64 (emulated via qemu-user-static/binfmt_misc
+# on x86_64 hosts) and produces a .flatpak bundle for sideloading onto
+# aarch64 devices like the PostmarketOS OnePlus 6T.
+#
+# Usage (from Makefile):
+#   docker buildx build --platform linux/arm64 \
+#     -f Dockerfile.aarch64-builder -o dist/ .
+
+FROM arm64v8/fedora:41
+
+RUN dnf install -y \
+    flatpak \
+    flatpak-builder \
+    git \
+    && dnf clean all
+
+RUN flatpak remote-add --if-not-exists flathub \
+    https://flathub.org/repo/flathub.flatpakrepo
+
+RUN flatpak install -y flathub \
+    org.gnome.Sdk//48 \
+    org.gnome.Platform//48
+
+WORKDIR /build
+
+# Copy the full app source tree
+COPY . /build/
+
+# Build the flatpak
+RUN flatpak-builder --repo=/build/repo --force-clean \
+    /build/build-dir \
+    com.github.loyaltycardapp.LoyaltyCardApp.json
+
+# Create the .flatpak bundle
+RUN mkdir -p /build/dist && \
+    flatpak build-bundle /build/repo \
+    /build/dist/com.github.loyaltycardapp.LoyaltyCardApp-aarch64.flatpak \
+    com.github.loyaltycardapp.LoyaltyCardApp
+
+# Output stage: only the bundle
+FROM scratch
+COPY --from=0 /build/dist/*.flatpak /
