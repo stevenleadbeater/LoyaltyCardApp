@@ -107,6 +107,8 @@ export _BWRAP_CHDIR="$CHDIR"
 if unshare -m true 2>/dev/null; then
     log "unshare -m works, using mount namespace"
     exec unshare -m sh -c '
+        # Restore sbin dirs — flatpak-builder --setenv PATH strips them
+        PATH="/usr/sbin:/sbin:$PATH"
         while IFS="	" read -r OP A1 A2; do
             case "$OP" in
                 BIND|ROBIND)
