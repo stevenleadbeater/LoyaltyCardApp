@@ -10,6 +10,10 @@
 
 set -e
 
+log() { echo "bwrap-shim: $*" >&2; }
+
+log "invoked with $# args: $*"
+
 # Collect mount operations in a temp file (one per line, tab-separated)
 MOUNTS=$(mktemp)
 trap "rm -f $MOUNTS" EXIT
@@ -68,56 +72,77 @@ done
 
 # If no mounts, just run directly
 if [ ! -s "$MOUNTS" ]; then
+    log "no mounts requested, running directly: $*"
     [ -n "$CHDIR" ] && cd "$CHDIR"
     exec "$@"
 fi
+
+log "$(wc -l < "$MOUNTS") mount ops queued, chdir=$CHDIR, cmd=$*"
 
 # Apply mounts in a new mount namespace, then exec the command.
 # We pass the mount file and chdir via env vars.
 export _BWRAP_MOUNTS="$MOUNTS"
 export _BWRAP_CHDIR="$CHDIR"
 
-exec unshare -m sh -c '
+# Test whether unshare -m works at all under this kernel/QEMU combo
+if unshare -m true 2>/dev/null; then
+    log "unshare -m works, using mount namespace"
+    exec unshare -m sh -c '
+        while IFS="	" read -r OP A1 A2; do
+            case "$OP" in
+                BIND|ROBIND)
+                    [ -e "$A1" ] || continue
+                    if [ -d "$A1" ]; then
+                        mkdir -p "$A2" 2>/dev/null || true
+                    else
+                        mkdir -p "$(dirname "$A2")" 2>/dev/null || true
+                        touch "$A2" 2>/dev/null || true
+                    fi
+                    mount --bind "$A1" "$A2"
+                    ;;
+                TRYBIND)
+                    [ -e "$A1" ] || continue
+                    if [ -d "$A1" ]; then
+                        mkdir -p "$A2" 2>/dev/null || true
+                    else
+                        mkdir -p "$(dirname "$A2")" 2>/dev/null || true
+                        touch "$A2" 2>/dev/null || true
+                    fi
+                    mount --bind "$A1" "$A2" 2>/dev/null || true
+                    ;;
+                SYMLINK)
+                    mkdir -p "$(dirname "$A2")" 2>/dev/null || true
+                    ln -sf "$A1" "$A2" 2>/dev/null || true
+                    ;;
+                TMPFS)
+                    mkdir -p "$A1" 2>/dev/null || true
+                    mount -t tmpfs tmpfs "$A1"
+                    ;;
+                PROC)
+                    mkdir -p "$A1" 2>/dev/null || true
+                    mount -t proc proc "$A1"
+                    ;;
+                DEV)
+                    mkdir -p "$A1" 2>/dev/null || true
+                    mount --bind /dev "$A1"
+                    ;;
+            esac
+        done < "$_BWRAP_MOUNTS"
+        [ -n "$_BWRAP_CHDIR" ] && cd "$_BWRAP_CHDIR"
+        exec "$@"
+    ' _ "$@"
+else
+    log "WARNING: unshare -m FAILED (likely QEMU limitation), running without mount namespace"
+    # Apply symlinks and env directly (skip bind mounts — they need a mount namespace)
     while IFS="	" read -r OP A1 A2; do
         case "$OP" in
-            BIND|ROBIND)
-                [ -e "$A1" ] || continue
-                if [ -d "$A1" ]; then
-                    mkdir -p "$A2" 2>/dev/null || true
-                else
-                    mkdir -p "$(dirname "$A2")" 2>/dev/null || true
-                    touch "$A2" 2>/dev/null || true
-                fi
-                mount --bind "$A1" "$A2"
-                ;;
-            TRYBIND)
-                [ -e "$A1" ] || continue
-                if [ -d "$A1" ]; then
-                    mkdir -p "$A2" 2>/dev/null || true
-                else
-                    mkdir -p "$(dirname "$A2")" 2>/dev/null || true
-                    touch "$A2" 2>/dev/null || true
-                fi
-                mount --bind "$A1" "$A2" 2>/dev/null || true
-                ;;
             SYMLINK)
                 mkdir -p "$(dirname "$A2")" 2>/dev/null || true
                 ln -sf "$A1" "$A2" 2>/dev/null || true
                 ;;
-            TMPFS)
-                mkdir -p "$A1" 2>/dev/null || true
-                mount -t tmpfs tmpfs "$A1"
-                ;;
-            PROC)
-                mkdir -p "$A1" 2>/dev/null || true
-                mount -t proc proc "$A1"
-                ;;
-            DEV)
-                mkdir -p "$A1" 2>/dev/null || true
-                mount --bind /dev "$A1"
-                ;;
         esac
-    done < "$_BWRAP_MOUNTS"
-    [ -n "$_BWRAP_CHDIR" ] && cd "$_BWRAP_CHDIR"
+    done < "$MOUNTS"
+    [ -n "$CHDIR" ] && cd "$CHDIR"
+    log "falling back to direct exec: $*"
     exec "$@"
-' _ "$@"
+fi
