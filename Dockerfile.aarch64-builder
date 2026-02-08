@@ -29,7 +29,7 @@ WORKDIR /build
 COPY . /build/
 
 # Build the flatpak
-RUN flatpak-builder --repo=/build/repo --force-clean --disable-rofiles-fuse \
+RUN flatpak-builder --repo=/build/repo --force-clean --disable-rofiles-fuse --disable-sandbox \
     /build/build-dir \
     com.github.loyaltycardapp.LoyaltyCardApp.json
 
