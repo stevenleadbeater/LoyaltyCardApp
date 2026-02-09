@@ -18,9 +18,9 @@ SDK := org.gnome.Sdk//48
 REPO := dist/repo
 BUILDDIR_X86_64 := build/x86_64
 BUNDLE_DIR := dist
-DOCKER_IMAGE := loyalty-card-app-aarch64-builder
+FLATHUB_IMAGE := ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
 
-.PHONY: build build-x86_64 build-aarch64 bundle bundle-x86_64 bundle-aarch64 \
+.PHONY: build build-x86_64 build-x86_64-docker build-aarch64 bundle bundle-x86_64 bundle-aarch64 \
         install run clean setup-x86_64 setup-binfmt
 
 build: build-x86_64
@@ -39,19 +39,27 @@ build-x86_64: setup-x86_64
 	flatpak-builder --arch=x86_64 --force-clean --repo=$(REPO) \
 		$(BUILDDIR_X86_64) $(MANIFEST)
 
-# Build for aarch64 inside Docker container with QEMU emulation
-# Two steps: docker build prepares the image with SDK, docker run --privileged
-# executes flatpak-builder (bwrap needs user namespaces)
+# Build for x86_64 inside Docker container (for CI or developers without SDK)
+build-x86_64-docker:
+	mkdir -p $(BUNDLE_DIR)
+	docker run --rm --privileged \
+		-v $(CURDIR):/src -w /src \
+		$(FLATHUB_IMAGE) \
+		bash -c 'flatpak-builder --repo=repo --disable-rofiles-fuse --force-clean \
+			--arch=x86_64 build-dir $(MANIFEST) && \
+			flatpak build-bundle repo \
+			$(BUNDLE_DIR)/$(APP_ID)-x86_64.flatpak $(APP_ID)'
+
+# Build for aarch64 using flathub-infra container with QEMU emulation
 build-aarch64: setup-binfmt
 	mkdir -p $(BUNDLE_DIR)
-	docker build --platform linux/arm64 \
-		-f Dockerfile.aarch64-builder \
-		-t $(DOCKER_IMAGE) .
 	docker run --rm --privileged --platform linux/arm64 \
-		-v $(CURDIR)/$(BUNDLE_DIR):/out \
-		$(DOCKER_IMAGE)
-	@echo "Bundle created: $(BUNDLE_DIR)/$(APP_ID)-aarch64.flatpak"
-	@echo "Bundle created: $(BUNDLE_DIR)/$(APP_ID)-aarch64.flatpak"
+		-v $(CURDIR):/src -w /src \
+		$(FLATHUB_IMAGE) \
+		bash -c 'flatpak-builder --repo=repo --disable-rofiles-fuse --force-clean \
+			--arch=aarch64 build-dir $(MANIFEST) && \
+			flatpak build-bundle repo \
+			$(BUNDLE_DIR)/$(APP_ID)-aarch64.flatpak $(APP_ID)'
 
 # Create .flatpak bundle for x86_64
 bundle-x86_64: build-x86_64

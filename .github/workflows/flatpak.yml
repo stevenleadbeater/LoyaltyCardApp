@@ -1,0 +1,36 @@
+name: Flatpak
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Docker (for QEMU)
+        if: ${{ matrix.arch != 'x86_64' }}
+        run: |
+          curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-26.0.0.tgz | tar xz
+          mv docker/* /usr/bin/
+      - name: Set up QEMU
+        if: ${{ matrix.arch != 'x86_64' }}
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: com.github.loyaltycardapp.LoyaltyCardApp.flatpak
+          manifest-path: com.github.loyaltycardapp.LoyaltyCardApp.json
+          cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
+          arch: ${{ matrix.arch }}
