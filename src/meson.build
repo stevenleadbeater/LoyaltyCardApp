@@ -40,6 +40,7 @@ install_data(
     'loyalty_card_app/barcode_scanner.py',
     'loyalty_card_app/file_scanner.py',
     'loyalty_card_app/camera_devices.py',
+    'loyalty_card_app/barcode_render.py',
   ],
   install_dir: moduledir,
 )

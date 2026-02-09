@@ -7,7 +7,9 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, GObject, Gtk
+from gi.repository import Adw, Gdk, GLib, GObject, Gtk
+
+from loyalty_card_app.barcode_render import render_barcode
 
 
 class CardDetailPage(Adw.NavigationPage):
@@ -75,7 +77,9 @@ class CardDetailPage(Adw.NavigationPage):
         )
         clamp.set_child(box)
 
-        # Colored card header
+        # Colored card header — use unique CSS class per card to avoid
+        # stale CSS providers from previously opened cards bleeding through.
+        self._card_css_class = f"card-detail-{card['id'][:8]}"
         card_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=8,
@@ -83,7 +87,7 @@ class CardDetailPage(Adw.NavigationPage):
         )
         card_box.set_size_request(-1, 120)
         card_box.set_valign(Gtk.Align.CENTER)
-        card_box.add_css_class("card-detail-box")
+        card_box.add_css_class(self._card_css_class)
 
         name_label = Gtk.Label(label=card["name"])
         name_label.add_css_class("title-1")
@@ -97,7 +101,7 @@ class CardDetailPage(Adw.NavigationPage):
 
         box.append(card_box)
 
-        # Barcode value display
+        # Visual barcode display
         barcode_frame = Gtk.Frame()
         barcode_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -109,13 +113,37 @@ class CardDetailPage(Adw.NavigationPage):
             halign=Gtk.Align.CENTER,
         )
 
+        # Render barcode image
+        surface = render_barcode(card["barcode_format"], card["barcode_value"])
+        if surface is not None:
+            barcode_picture = Gtk.Picture(
+                content_fit=Gtk.ContentFit.CONTAIN,
+                hexpand=True,
+            )
+            barcode_picture.set_size_request(320, 160)
+            # Convert Cairo surface to GdkTexture via PNG bytes
+            png_data = bytearray()
+            surface.write_to_png_stream(lambda _, data: png_data.extend(data))
+            gbytes = GLib.Bytes.new(bytes(png_data))
+            texture = Gdk.Texture.new_from_bytes(gbytes)
+            barcode_picture.set_paintable(texture)
+            barcode_box.append(barcode_picture)
+        else:
+            # Unsupported format — show value prominently instead
+            no_barcode = Gtk.Label(
+                label="Visual barcode not available for this format",
+                css_classes=["dim-label", "caption"],
+            )
+            barcode_box.append(no_barcode)
+
+        # Always show the text value below for reference/copying
         barcode_label = Gtk.Label(
             label=card["barcode_value"],
             selectable=True,
             wrap=True,
         )
         barcode_label.add_css_class("monospace")
-        barcode_label.add_css_class("title-2")
+        barcode_label.add_css_class("title-3")
         barcode_box.append(barcode_label)
 
         hint = Gtk.Label(
@@ -129,7 +157,7 @@ class CardDetailPage(Adw.NavigationPage):
 
         # Apply card color CSS
         css = f"""
-            .card-detail-box {{
+            .{self._card_css_class} {{
                 background-color: {card["color"]};
                 border-radius: 12px;
                 padding: 24px;
@@ -154,6 +182,15 @@ class CardDetailPage(Adw.NavigationPage):
     def _on_delete_clicked(self, _btn):
         card = self._card
         self.emit("card-delete-requested", card["id"], card["name"])
+
+    def do_unroot(self):
+        """Remove CSS provider when page is removed from widget tree."""
+        display = Gdk.Display.get_default()
+        if display:
+            Gtk.StyleContext.remove_provider_for_display(
+                display, self._css_provider
+            )
+        Adw.NavigationPage.do_unroot(self)
 
     def update_card(self, card):
         self._card = card
