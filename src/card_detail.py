@@ -131,7 +131,7 @@ class CardDetailPage(Adw.NavigationPage):
                         content_fit=Gtk.ContentFit.CONTAIN,
                         hexpand=True,
                     )
-                    barcode_picture.set_size_request(320, 160)
+                    barcode_picture.set_size_request(-1, 120)
                     barcode_picture.set_paintable(texture)
                     barcode_box.append(barcode_picture)
                     barcode_rendered = True
