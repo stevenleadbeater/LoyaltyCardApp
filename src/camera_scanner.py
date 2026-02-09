@@ -19,6 +19,12 @@ gi.require_version("Gst", "1.0")
 
 from gi.repository import Adw, GLib, GObject, Gst, Gtk
 
+from loyalty_card_app.camera_devices import (
+    enumerate_cameras,
+    select_camera,
+    set_preferred_camera_node,
+)
+
 Gst.init(None)
 
 # Map ZBar type strings to display format names.
@@ -35,25 +41,6 @@ ZBAR_FORMAT_MAP = {
 
 # Formats we accept (from the issue requirements).
 SUPPORTED_FORMATS = frozenset(ZBAR_FORMAT_MAP.values())
-
-# Pipeline template for portal-based camera access via PipeWire.
-# The fd placeholder is filled at runtime after portal negotiation.
-PIPELINE_PORTAL_TEMPLATE = (
-    "pipewiresrc fd={fd} ! "
-    "videoconvert ! "
-    "zbar name=zbar ! "
-    "videoconvert ! "
-    "gtk4paintablesink name=sink"
-)
-
-# Fallback pipeline for non-sandboxed environments.
-PIPELINE_FALLBACK = (
-    "autovideosrc ! "
-    "videoconvert ! "
-    "zbar name=zbar ! "
-    "videoconvert ! "
-    "gtk4paintablesink name=sink"
-)
 
 
 def _have_xdp_portal():
@@ -86,6 +73,9 @@ class CameraScannerPage(Adw.NavigationPage):
         self._pipeline = None
         self._bus_watch_id = None
         self._scanned = False
+        self._cameras = None
+        self._camera_index = 0
+        self._selected_camera = None
 
         self._build_ui()
 
@@ -94,6 +84,16 @@ class CameraScannerPage(Adw.NavigationPage):
         self.set_child(toolbar_view)
 
         header = Adw.HeaderBar()
+
+        # Camera switch button (hidden until multiple cameras detected)
+        self._switch_btn = Gtk.Button(
+            icon_name="camera-switch-symbolic",
+            tooltip_text="Switch Camera",
+            visible=False,
+        )
+        self._switch_btn.connect("clicked", self._on_switch_camera)
+        header.pack_end(self._switch_btn)
+
         toolbar_view.add_top_bar(header)
 
         # Stack to switch between viewfinder and status messages.
@@ -159,10 +159,28 @@ class CameraScannerPage(Adw.NavigationPage):
         self._stack.set_visible_child_name("viewfinder")
         self._hint.set_label("Requesting camera access\u2026")
 
+        # Enumerate cameras on first start
+        if self._cameras is None:
+            self._cameras = enumerate_cameras()
+            self._selected_camera, self._camera_index = select_camera(
+                self._cameras
+            )
+            self._switch_btn.set_visible(len(self._cameras) > 1)
+
         if _have_xdp_portal():
             self._request_camera_portal()
         else:
             self._start_pipeline_fallback()
+
+    def _on_switch_camera(self, _btn):
+        """Cycle to the next camera and restart the pipeline."""
+        if not self._cameras or len(self._cameras) < 2:
+            return
+        self._camera_index = (self._camera_index + 1) % len(self._cameras)
+        self._selected_camera = self._cameras[self._camera_index]
+        if self._selected_camera.node_path:
+            set_preferred_camera_node(self._selected_camera.node_path)
+        self.start()
 
     def _request_camera_portal(self):
         """Request camera access through xdg-desktop-portal."""
@@ -197,25 +215,45 @@ class CameraScannerPage(Adw.NavigationPage):
             self._start_pipeline_fallback()
             return
 
-        pipeline_desc = PIPELINE_PORTAL_TEMPLATE.format(fd=pw_fd)
-        self._launch_pipeline(pipeline_desc)
+        src = Gst.ElementFactory.make("pipewiresrc", "camera")
+        if src is None:
+            self._start_pipeline_fallback()
+            return
+        src.set_property("fd", pw_fd)
+        if self._selected_camera and self._selected_camera.node_path:
+            src.set_property("path", self._selected_camera.node_path)
+        self._launch_pipeline(src)
 
     def _start_pipeline_fallback(self):
-        """Start pipeline using autovideosrc (non-sandboxed fallback)."""
-        self._launch_pipeline(PIPELINE_FALLBACK)
-
-    def _launch_pipeline(self, pipeline_desc):
-        """Create and start a GStreamer pipeline from a description string."""
-        try:
-            self._pipeline = Gst.parse_launch(pipeline_desc)
-        except GLib.Error:
+        """Start pipeline using device source or autovideosrc fallback."""
+        if self._selected_camera:
+            src = self._selected_camera.create_source("camera")
+        else:
+            src = Gst.ElementFactory.make("autovideosrc", "camera")
+        if src is None:
             self._stack.set_visible_child_name("error")
             return
+        self._launch_pipeline(src)
 
-        sink = self._pipeline.get_by_name("sink")
-        if sink is None:
-            self._stack.set_visible_child_name("error")
-            return
+    def _launch_pipeline(self, src):
+        """Create and start a GStreamer pipeline with the given video source."""
+        self._pipeline = Gst.Pipeline.new("camera-scanner")
+
+        convert1 = Gst.ElementFactory.make("videoconvert", "convert1")
+        zbar = Gst.ElementFactory.make("zbar", "zbar")
+        convert2 = Gst.ElementFactory.make("videoconvert", "convert2")
+        sink = Gst.ElementFactory.make("gtk4paintablesink", "sink")
+
+        for el in [src, convert1, zbar, convert2, sink]:
+            if el is None:
+                self._stack.set_visible_child_name("error")
+                return
+            self._pipeline.add(el)
+
+        src.link(convert1)
+        convert1.link(zbar)
+        zbar.link(convert2)
+        convert2.link(sink)
 
         paintable = sink.get_property("paintable")
         self._picture.set_paintable(paintable)
@@ -225,11 +263,6 @@ class CameraScannerPage(Adw.NavigationPage):
         self._bus_watch_id = bus.connect("message", self._on_bus_message)
 
         self._pipeline.set_state(Gst.State.PLAYING)
-        # Don't check the return value here — pipewiresrc often returns
-        # FAILURE synchronously while the async state change is still in
-        # progress.  Real errors will arrive on the bus and be handled
-        # by _on_bus_message.
-
         self._hint.set_label("Point camera at a barcode")
         self._stack.set_visible_child_name("viewfinder")
 

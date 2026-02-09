@@ -16,6 +16,11 @@ gi.require_version("GLib", "2.0")
 from gi.repository import Adw, Gdk, GLib, GObject, Gst, Gtk
 
 from loyalty_card_app.barcode_formats import BarcodeFormat
+from loyalty_card_app.camera_devices import (
+    enumerate_cameras,
+    select_camera,
+    set_preferred_camera_node,
+)
 
 # Map zbar type names to our BarcodeFormat enum
 ZBAR_FORMAT_MAP: dict[str, BarcodeFormat] = {
@@ -61,6 +66,9 @@ class BarcodeScannerPage(Adw.NavigationPage):
         self._bus_watch_id = None
         self._frame_timeout_id = None
         self._detected = False
+        self._cameras = None
+        self._camera_index = 0
+        self._selected_camera = None
 
         self._build_ui()
 
@@ -69,6 +77,16 @@ class BarcodeScannerPage(Adw.NavigationPage):
         self.set_child(toolbar_view)
 
         header = Adw.HeaderBar()
+
+        # Camera switch button (hidden until multiple cameras detected)
+        self._switch_btn = Gtk.Button(
+            icon_name="camera-switch-symbolic",
+            tooltip_text="Switch Camera",
+            visible=False,
+        )
+        self._switch_btn.connect("clicked", self._on_switch_camera)
+        header.pack_end(self._switch_btn)
+
         toolbar_view.add_top_bar(header)
 
         # Main content
@@ -115,6 +133,18 @@ class BarcodeScannerPage(Adw.NavigationPage):
         """Stop camera when page is hidden."""
         self._stop_pipeline()
 
+    def _on_switch_camera(self, _btn):
+        """Cycle to the next camera and restart the pipeline."""
+        if not self._cameras or len(self._cameras) < 2:
+            return
+        self._stop_pipeline()
+        self._camera_index = (self._camera_index + 1) % len(self._cameras)
+        self._selected_camera = self._cameras[self._camera_index]
+        if self._selected_camera.node_path:
+            set_preferred_camera_node(self._selected_camera.node_path)
+        self._detected = False
+        self._start_pipeline()
+
     def _start_pipeline(self):
         """Create and start the GStreamer pipeline for camera + barcode detection."""
         if self._pipeline is not None:
@@ -122,6 +152,14 @@ class BarcodeScannerPage(Adw.NavigationPage):
 
         Gst.init(None)
         self._status_label.set_label("Requesting camera access\u2026")
+
+        # Enumerate cameras on first start
+        if self._cameras is None:
+            self._cameras = enumerate_cameras()
+            self._selected_camera, self._camera_index = select_camera(
+                self._cameras
+            )
+            self._switch_btn.set_visible(len(self._cameras) > 1)
 
         # Try portal-based camera access first (works inside Flatpak sandbox)
         try:
@@ -137,9 +175,11 @@ class BarcodeScannerPage(Adw.NavigationPage):
             )
         except (ValueError, ImportError):
             # Portal not available, use direct camera access
-            self._build_pipeline_with_source(
-                Gst.ElementFactory.make("autovideosrc", "camera")
-            )
+            if self._selected_camera:
+                src = self._selected_camera.create_source("camera")
+            else:
+                src = Gst.ElementFactory.make("autovideosrc", "camera")
+            self._build_pipeline_with_source(src)
 
     def _on_camera_portal_done(self, portal, result):
         """Handle camera portal access response."""
@@ -158,18 +198,24 @@ class BarcodeScannerPage(Adw.NavigationPage):
             pw_fd = portal.open_pipewire_remote_for_camera()
         except GLib.Error:
             # Fall back to direct camera access
-            self._build_pipeline_with_source(
-                Gst.ElementFactory.make("autovideosrc", "camera")
-            )
+            if self._selected_camera:
+                src = self._selected_camera.create_source("camera")
+            else:
+                src = Gst.ElementFactory.make("autovideosrc", "camera")
+            self._build_pipeline_with_source(src)
             return
 
         src = Gst.ElementFactory.make("pipewiresrc", "camera")
         if src is None:
-            self._build_pipeline_with_source(
-                Gst.ElementFactory.make("autovideosrc", "camera")
-            )
+            if self._selected_camera:
+                src = self._selected_camera.create_source("camera")
+            else:
+                src = Gst.ElementFactory.make("autovideosrc", "camera")
+            self._build_pipeline_with_source(src)
             return
         src.set_property("fd", pw_fd)
+        if self._selected_camera and self._selected_camera.node_path:
+            src.set_property("path", self._selected_camera.node_path)
         self._build_pipeline_with_source(src)
 
     def _build_pipeline_with_source(self, src):
