@@ -7,7 +7,9 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, GLib, GObject, Gtk
+gi.require_version("GdkPixbuf", "2.0")
+
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, GObject, Gtk
 
 from loyalty_card_app.barcode_render import render_barcode
 
@@ -114,22 +116,31 @@ class CardDetailPage(Adw.NavigationPage):
         )
 
         # Render barcode image
-        surface = render_barcode(card["barcode_format"], card["barcode_value"])
-        if surface is not None:
-            barcode_picture = Gtk.Picture(
-                content_fit=Gtk.ContentFit.CONTAIN,
-                hexpand=True,
-            )
-            barcode_picture.set_size_request(320, 160)
-            # Convert Cairo surface to GdkTexture via PNG bytes
-            png_data = bytearray()
-            surface.write_to_png_stream(lambda _, data: png_data.extend(data))
-            gbytes = GLib.Bytes.new(bytes(png_data))
-            texture = Gdk.Texture.new_from_bytes(gbytes)
-            barcode_picture.set_paintable(texture)
-            barcode_box.append(barcode_picture)
-        else:
-            # Unsupported format — show value prominently instead
+        barcode_rendered = False
+        try:
+            surface = render_barcode(card["barcode_format"], card["barcode_value"])
+            if surface is not None:
+                import tempfile, os
+                fd, tmp_path = tempfile.mkstemp(suffix=".png")
+                os.close(fd)
+                try:
+                    surface.write_to_png(tmp_path)
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file(tmp_path)
+                    texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                    barcode_picture = Gtk.Picture(
+                        content_fit=Gtk.ContentFit.CONTAIN,
+                        hexpand=True,
+                    )
+                    barcode_picture.set_size_request(320, 160)
+                    barcode_picture.set_paintable(texture)
+                    barcode_box.append(barcode_picture)
+                    barcode_rendered = True
+                finally:
+                    os.unlink(tmp_path)
+        except Exception:
+            pass
+
+        if not barcode_rendered:
             no_barcode = Gtk.Label(
                 label="Visual barcode not available for this format",
                 css_classes=["dim-label", "caption"],
