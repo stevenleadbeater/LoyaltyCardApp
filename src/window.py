@@ -8,7 +8,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .card_detail import CardDetailPage
 from .card_manager import CardManager
@@ -91,6 +91,11 @@ class LoyaltyCardAppWindow(Adw.ApplicationWindow):
             arrow.add_css_class("dim-label")
             row.add_suffix(arrow)
 
+            # Long press context menu
+            long_press = Gtk.GestureLongPress()
+            long_press.connect("pressed", self._on_row_long_press, row)
+            row.add_controller(long_press)
+
             self.cards_list.append(row)
 
             css_parts.append(
@@ -167,6 +172,49 @@ class LoyaltyCardAppWindow(Adw.ApplicationWindow):
         self._store.add_card(name, color, barcode_format, barcode_value)
         self._refresh_cards()
 
+    def _on_row_long_press(self, _gesture, _x, _y, row):
+        """Show context menu on long press."""
+        card_id = row.card_id
+        card = self._store.get_card(card_id)
+        if card is None:
+            return
+
+        menu = Gio.Menu()
+        menu.append("Edit", f"card.edit::{card_id}")
+        menu.append("Delete", f"card.delete::{card_id}")
+
+        popover = Gtk.PopoverMenu(menu_model=menu)
+        popover.set_parent(row)
+        popover.set_has_arrow(True)
+
+        # Set up actions scoped to this popover
+        group = Gio.SimpleActionGroup()
+
+        edit_action = Gio.SimpleAction.new("edit", GLib.VariantType.new("s"))
+        edit_action.connect("activate", self._on_context_edit)
+        group.add_action(edit_action)
+
+        delete_action = Gio.SimpleAction.new("delete", GLib.VariantType.new("s"))
+        delete_action.connect("activate", self._on_context_delete)
+        group.add_action(delete_action)
+
+        popover.insert_action_group("card", group)
+        popover.popup()
+
+    def _on_context_edit(self, _action, param):
+        card_id = param.get_string()
+        card = self._store.get_card(card_id)
+        if card:
+            self._card_manager.show_edit_dialog(
+                self, card["id"], card["name"], card["color"]
+            )
+
+    def _on_context_delete(self, _action, param):
+        card_id = param.get_string()
+        card = self._store.get_card(card_id)
+        if card:
+            self._card_manager.show_delete_dialog(self, card["id"], card["name"])
+
     def _on_row_activated(self, _listbox, row):
         card_id = row.card_id
         card = self._store.get_card(card_id)
@@ -188,10 +236,15 @@ class LoyaltyCardAppWindow(Adw.ApplicationWindow):
 
     def _on_card_changed(self, _manager, card_id, new_name, new_color):
         self._store.update_card(card_id, name=new_name, color=new_color)
-        self.navigation_view.pop()
+        # Pop detail page if we're on one, otherwise just refresh
+        visible = self.navigation_view.get_visible_page()
+        if isinstance(visible, CardDetailPage):
+            self.navigation_view.pop()
         self._refresh_cards()
 
     def _on_card_deleted(self, _manager, card_id):
         self._store.delete_card(card_id)
-        self.navigation_view.pop()
+        visible = self.navigation_view.get_visible_page()
+        if isinstance(visible, CardDetailPage):
+            self.navigation_view.pop()
         self._refresh_cards()
