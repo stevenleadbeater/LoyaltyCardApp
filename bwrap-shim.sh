@@ -35,7 +35,7 @@ fi
 
 # Collect mount operations in a temp file (one per line, tab-separated)
 MOUNTS=$(mktemp)
-trap "rm -f $MOUNTS" EXIT
+trap "rm -f $MOUNTS /tmp/.bwrap-shim-mount.$$" EXIT
 
 # Save host PATH before --setenv overwrites it
 export _ORIG_PATH="$PATH"
@@ -46,6 +46,15 @@ if [ -z "$_MOUNT_BIN" ]; then
     for _p in /usr/bin/mount /usr/sbin/mount /sbin/mount /bin/mount; do
         [ -x "$_p" ] && _MOUNT_BIN="$_p" && break
     done
+fi
+# Copy mount binary to a safe location that won't be overlaid.
+# flatpak-builder binds the SDK over /usr, which destroys /usr/bin/mount
+# mid-execution. A copy in /tmp survives all overlays.
+if [ -n "$_MOUNT_BIN" ]; then
+    _SAFE_MOUNT="/tmp/.bwrap-shim-mount.$$"
+    cp "$_MOUNT_BIN" "$_SAFE_MOUNT"
+    chmod +x "$_SAFE_MOUNT"
+    _MOUNT_BIN="$_SAFE_MOUNT"
 fi
 export _MOUNT_BIN
 log "mount binary: ${_MOUNT_BIN:-NOT FOUND}"
