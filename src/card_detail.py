@@ -63,6 +63,9 @@ class CardDetailPage(Adw.NavigationPage):
 
         toolbar_view.add_top_bar(header)
 
+        self._toast_overlay = Adw.ToastOverlay()
+        toolbar_view.set_content(self._toast_overlay)
+
         clamp = Adw.Clamp(
             maximum_size=500,
             margin_top=24,
@@ -70,7 +73,7 @@ class CardDetailPage(Adw.NavigationPage):
             margin_start=12,
             margin_end=12,
         )
-        toolbar_view.set_content(clamp)
+        self._toast_overlay.set_child(clamp)
 
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -79,16 +82,13 @@ class CardDetailPage(Adw.NavigationPage):
         )
         clamp.set_child(box)
 
-        # Colored card header — use unique CSS class per card to avoid
-        # stale CSS providers from previously opened cards bleeding through.
+        # Colored card — looks like a physical loyalty card with barcode inside
         self._card_css_class = f"card-detail-{card['id'][:8]}"
         card_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=8,
+            spacing=12,
             halign=Gtk.Align.FILL,
         )
-        card_box.set_size_request(-1, 120)
-        card_box.set_valign(Gtk.Align.CENTER)
         card_box.add_css_class(self._card_css_class)
 
         name_label = Gtk.Label(label=card["name"])
@@ -101,21 +101,7 @@ class CardDetailPage(Adw.NavigationPage):
         format_label.add_css_class("card-detail-label")
         card_box.append(format_label)
 
-        box.append(card_box)
-
-        # Visual barcode display
-        barcode_frame = Gtk.Frame()
-        barcode_box = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=8,
-            margin_top=24,
-            margin_bottom=24,
-            margin_start=16,
-            margin_end=16,
-            halign=Gtk.Align.CENTER,
-        )
-
-        # Render barcode image
+        # Barcode image inside the card
         barcode_rendered = False
         try:
             surface = render_barcode(card["barcode_format"], card["barcode_value"])
@@ -133,7 +119,15 @@ class CardDetailPage(Adw.NavigationPage):
                     )
                     barcode_picture.set_size_request(-1, 120)
                     barcode_picture.set_paintable(texture)
-                    barcode_box.append(barcode_picture)
+
+                    # Long press on barcode to copy number
+                    long_press = Gtk.GestureLongPress()
+                    long_press.connect(
+                        "pressed", self._on_barcode_long_press
+                    )
+                    barcode_picture.add_controller(long_press)
+
+                    card_box.append(barcode_picture)
                     barcode_rendered = True
                 finally:
                     os.unlink(tmp_path)
@@ -143,34 +137,23 @@ class CardDetailPage(Adw.NavigationPage):
         if not barcode_rendered:
             no_barcode = Gtk.Label(
                 label="Visual barcode not available for this format",
-                css_classes=["dim-label", "caption"],
+                css_classes=["dim-label", "caption", "card-detail-label"],
             )
-            barcode_box.append(no_barcode)
+            card_box.append(no_barcode)
 
-        # Always show the text value below for reference/copying
-        barcode_label = Gtk.Label(
-            label=card["barcode_value"],
-            selectable=True,
-            wrap=True,
-        )
-        barcode_label.add_css_class("monospace")
-        barcode_label.add_css_class("title-3")
-        barcode_box.append(barcode_label)
+        box.append(card_box)
 
         hint = Gtk.Label(
-            label="Long press to copy barcode number",
+            label="Long press barcode to copy number",
             css_classes=["dim-label", "caption"],
         )
-        barcode_box.append(hint)
-
-        barcode_frame.set_child(barcode_box)
-        box.append(barcode_frame)
+        box.append(hint)
 
         # Apply card color CSS
         css = f"""
             .{self._card_css_class} {{
                 background-color: {card["color"]};
-                border-radius: 12px;
+                border-radius: 16px;
                 padding: 24px;
             }}
             .card-detail-label {{
@@ -185,6 +168,11 @@ class CardDetailPage(Adw.NavigationPage):
                 self._css_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
+
+    def _on_barcode_long_press(self, _gesture, _x, _y):
+        clipboard = Gdk.Display.get_default().get_clipboard()
+        clipboard.set(self._card["barcode_value"])
+        self._toast_overlay.add_toast(Adw.Toast(title="Barcode number copied"))
 
     def _on_edit_clicked(self, _btn):
         card = self._card
