@@ -53,7 +53,7 @@ build-x86_64-docker:
 # Build for aarch64 using flathub-infra container with QEMU emulation
 build-aarch64: setup-binfmt
 	mkdir -p $(BUNDLE_DIR)
-	docker run --rm --privileged --platform linux/arm64 \
+	docker run --rm --privileged \
 		-v $(CURDIR):/src -w /src \
 		$(FLATHUB_IMAGE) \
 		bash -c 'flatpak-builder --repo=repo --disable-rofiles-fuse --force-clean \

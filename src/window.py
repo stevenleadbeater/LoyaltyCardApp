@@ -107,6 +107,7 @@ class LoyaltyCardAppWindow(Adw.ApplicationWindow):
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("manual", "Enter Manually")
         dialog.add_response("camera", "Scan with Camera")
+        dialog.add_response("file", "Scan from File")
 
         dialog.set_response_appearance(
             "manual", Adw.ResponseAppearance.SUGGESTED
@@ -122,6 +123,8 @@ class LoyaltyCardAppWindow(Adw.ApplicationWindow):
             self._push_manual_entry()
         elif response == "camera":
             self._push_camera_scanner()
+        elif response == "file":
+            self._push_file_scanner()
 
     def _push_manual_entry(self):
         from loyalty_card_app.barcode_entry import BarcodeEntryPage
@@ -137,6 +140,13 @@ class LoyaltyCardAppWindow(Adw.ApplicationWindow):
         page.connect("barcode-scanned", self._on_barcode_received)
         self.navigation_view.push(page)
         page.start()
+
+    def _push_file_scanner(self):
+        from loyalty_card_app.file_scanner import FileScannerPage
+
+        page = FileScannerPage()
+        page.connect("barcode-scanned", self._on_barcode_received)
+        self.navigation_view.push(page)
 
     def _on_barcode_received(self, _page, barcode_format, barcode_value):
         self._pending_barcode = (barcode_format, barcode_value)
