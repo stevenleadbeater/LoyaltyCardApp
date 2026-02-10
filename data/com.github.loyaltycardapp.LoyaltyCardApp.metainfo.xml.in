@@ -6,6 +6,10 @@
 
   <name>Loyalty Cards</name>
   <summary>Manage your loyalty and membership cards</summary>
+
+  <developer id="com.github.stevenleadbeater">
+    <name>Steven Leadbeater</name>
+  </developer>
   <description>
     <p>
       A mobile-friendly application for managing loyalty cards, membership cards,
@@ -21,8 +25,9 @@
 
   <launchable type="desktop-id">com.github.loyaltycardapp.LoyaltyCardApp.desktop</launchable>
 
-  <url type="homepage">https://github.com/loyaltycardapp/loyalty-card-app</url>
-  <url type="bugtracker">https://github.com/loyaltycardapp/loyalty-card-app/issues</url>
+  <url type="homepage">https://github.com/stevenleadbeater/loyalty-card-app</url>
+  <url type="bugtracker">https://github.com/stevenleadbeater/loyalty-card-app/issues</url>
+  <url type="vcs-browser">https://github.com/stevenleadbeater/loyalty-card-app</url>
 
   <content_rating type="oars-1.1"/>
 

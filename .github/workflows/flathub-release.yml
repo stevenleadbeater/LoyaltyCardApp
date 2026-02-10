@@ -1,0 +1,63 @@
+name: Flathub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Docker (for QEMU)
+        if: ${{ matrix.arch != 'x86_64' }}
+        run: |
+          curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-26.0.0.tgz | tar xz
+          mv docker/* /usr/bin/
+      - name: Set up QEMU
+        if: ${{ matrix.arch != 'x86_64' }}
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: com.github.loyaltycardapp.LoyaltyCardApp-${{ matrix.arch }}.flatpak
+          manifest-path: com.github.loyaltycardapp.LoyaltyCardApp.json
+          cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
+          arch: ${{ matrix.arch }}
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-${{ matrix.arch }}
+          path: com.github.loyaltycardapp.LoyaltyCardApp-${{ matrix.arch }}.flatpak
+
+  release:
+    needs: flatpak
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG" \
+            --title "Loyalty Cards $TAG" \
+            --generate-notes \
+            --latest \
+            artifacts/flatpak-x86_64/*.flatpak \
+            artifacts/flatpak-aarch64/*.flatpak
