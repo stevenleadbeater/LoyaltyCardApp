@@ -44,8 +44,8 @@ class LoyaltyCardApp(Adw.Application):
             developers=['Loyalty Card App Contributors'],
             copyright='Copyright 2026',
             license_type=Gtk.License.GPL_3_0,
-            website='https://github.com/stevenleadbeater/loyalty-card-app',
-            issue_url='https://github.com/stevenleadbeater/loyalty-card-app/issues',
+            website='https://github.com/stevenleadbeater/LoyaltyCardApp',
+            issue_url='https://github.com/stevenleadbeater/LoyaltyCardApp/issues',
         )
         about.present(self.props.active_window)
 
