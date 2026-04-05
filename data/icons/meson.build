@@ -1,9 +1,9 @@
 install_data(
-  'hicolor' / 'scalable' / 'apps' / 'com.github.loyaltycardapp.LoyaltyCardApp.svg',
+  'hicolor' / 'scalable' / 'apps' / 'io.github.stevenleadbeater.LoyaltyCardApp.svg',
   install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps',
 )
 
 install_data(
-  'hicolor' / 'symbolic' / 'apps' / 'com.github.loyaltycardapp.LoyaltyCardApp-symbolic.svg',
+  'hicolor' / 'symbolic' / 'apps' / 'io.github.stevenleadbeater.LoyaltyCardApp-symbolic.svg',
   install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'symbolic' / 'apps',
 )

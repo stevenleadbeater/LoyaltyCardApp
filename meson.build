@@ -18,7 +18,7 @@ conf.set('PYTHON', py_installation.full_path())
 conf.set('VERSION', meson.project_version())
 conf.set('localedir', get_option('prefix') / get_option('localedir'))
 conf.set('pkgdatadir', pkgdatadir)
-conf.set('APP_ID', 'com.github.loyaltycardapp.LoyaltyCardApp')
+conf.set('APP_ID', 'io.github.stevenleadbeater.LoyaltyCardApp')
 
 subdir('data')
 subdir('src')

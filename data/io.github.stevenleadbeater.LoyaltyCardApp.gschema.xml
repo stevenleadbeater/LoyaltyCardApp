@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="loyalty-card-app">
-  <schema id="com.github.loyaltycardapp.LoyaltyCardApp" path="/com/github/loyaltycardapp/LoyaltyCardApp/">
+  <schema id="io.github.stevenleadbeater.LoyaltyCardApp" path="/io.github.stevenleadbeater.LoyaltyCardApp/">
     <key name="window-width" type="i">
       <default>360</default>
       <summary>Window width</summary>

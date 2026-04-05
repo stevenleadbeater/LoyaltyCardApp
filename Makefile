@@ -11,7 +11,7 @@
 #   make run             - Run the installed app
 #   make clean           - Remove build artifacts
 
-APP_ID := com.github.loyaltycardapp.LoyaltyCardApp
+APP_ID := io.github.stevenleadbeater.LoyaltyCardApp
 MANIFEST := $(APP_ID).json
 RUNTIME := org.gnome.Platform//48
 SDK := org.gnome.Sdk//48

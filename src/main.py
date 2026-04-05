@@ -14,7 +14,7 @@ from gi.repository import Gtk, Gio, Adw
 
 from .window import LoyaltyCardAppWindow
 
-APP_ID = 'com.github.loyaltycardapp.LoyaltyCardApp'
+APP_ID = 'io.github.stevenleadbeater.LoyaltyCardApp'
 
 
 class LoyaltyCardApp(Adw.Application):

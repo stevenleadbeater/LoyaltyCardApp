@@ -1,6 +1,6 @@
 desktop_file = i18n.merge_file(
-  input: 'com.github.loyaltycardapp.LoyaltyCardApp.desktop.in',
-  output: 'com.github.loyaltycardapp.LoyaltyCardApp.desktop',
+  input: 'io.github.stevenleadbeater.LoyaltyCardApp.desktop.in',
+  output: 'io.github.stevenleadbeater.LoyaltyCardApp.desktop',
   type: 'desktop',
   po_dir: '../po',
   install: true,
@@ -13,8 +13,8 @@ if desktop_utils.found()
 endif
 
 appstream_file = i18n.merge_file(
-  input: 'com.github.loyaltycardapp.LoyaltyCardApp.metainfo.xml.in',
-  output: 'com.github.loyaltycardapp.LoyaltyCardApp.metainfo.xml',
+  input: 'io.github.stevenleadbeater.LoyaltyCardApp.metainfo.xml.in',
+  output: 'io.github.stevenleadbeater.LoyaltyCardApp.metainfo.xml',
   po_dir: '../po',
   install: true,
   install_dir: get_option('datadir') / 'metainfo',
@@ -28,7 +28,7 @@ if appstreamcli.found()
 endif
 
 install_data(
-  'com.github.loyaltycardapp.LoyaltyCardApp.gschema.xml',
+  'io.github.stevenleadbeater.LoyaltyCardApp.gschema.xml',
   install_dir: get_option('datadir') / 'glib-2.0' / 'schemas',
 )
 

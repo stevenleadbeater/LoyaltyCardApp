@@ -30,15 +30,15 @@ jobs:
           platforms: arm64
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          bundle: com.github.loyaltycardapp.LoyaltyCardApp-${{ matrix.arch }}.flatpak
-          manifest-path: com.github.loyaltycardapp.LoyaltyCardApp.json
+          bundle: io.github.stevenleadbeater.LoyaltyCardApp-${{ matrix.arch }}.flatpak
+          manifest-path: io.github.stevenleadbeater.LoyaltyCardApp.json
           cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
           arch: ${{ matrix.arch }}
       - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-${{ matrix.arch }}
-          path: com.github.loyaltycardapp.LoyaltyCardApp-${{ matrix.arch }}.flatpak
+          path: io.github.stevenleadbeater.LoyaltyCardApp-${{ matrix.arch }}.flatpak
 
   release:
     needs: flatpak

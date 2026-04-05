@@ -1,5 +1,5 @@
 {
-    "app-id" : "com.github.loyaltycardapp.LoyaltyCardApp",
+    "app-id" : "io.github.stevenleadbeater.LoyaltyCardApp",
     "runtime" : "org.gnome.Platform",
     "runtime-version" : "48",
     "sdk" : "org.gnome.Sdk",
@@ -98,8 +98,8 @@
                 {
                     "type" : "git",
                     "url" : "https://github.com/stevenleadbeater/loyalty-card-app.git",
-                    "tag" : "v0.1.0",
-                    "commit" : "a5a552bb89d2faca75e93c8a532881bdae9546e8",
+                    "tag" : "v0.1.1",
+                    "commit" : "2deac6434f657d13c430ece32b5d038ab4141cb4",
                     "x-checker-data" : {
                         "type" : "git",
                         "tag-pattern" : "^v([\\d.]+)$"

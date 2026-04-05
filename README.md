@@ -13,8 +13,8 @@ meson install -C builddir
 ## Building with Flatpak
 
 ```bash
-flatpak-builder --user --install --force-clean _build com.github.loyaltycardapp.LoyaltyCardApp.json
-flatpak run com.github.loyaltycardapp.LoyaltyCardApp
+flatpak-builder --user --install --force-clean _build io.github.stevenleadbeater.LoyaltyCardApp.json
+flatpak run io.github.stevenleadbeater.LoyaltyCardApp
 ```
 
 ## Stack
