@@ -25,13 +25,13 @@
 
   <launchable type="desktop-id">io.github.stevenleadbeater.LoyaltyCardApp.desktop</launchable>
 
-  <url type="homepage">https://github.com/stevenleadbeater/loyalty-card-app</url>
-  <url type="bugtracker">https://github.com/stevenleadbeater/loyalty-card-app/issues</url>
-  <url type="vcs-browser">https://github.com/stevenleadbeater/loyalty-card-app</url>
+  <url type="homepage">https://github.com/stevenleadbeater/LoyaltyCardApp</url>
+  <url type="bugtracker">https://github.com/stevenleadbeater/LoyaltyCardApp/issues</url>
+  <url type="vcs-browser">https://github.com/stevenleadbeater/LoyaltyCardApp</url>
 
   <screenshots>
     <screenshot type="default">
-      <video>https://github.com/stevenleadbeater/loyalty-card-app/releases/download/v0.1.3/demo.webm</video>
+      <video>https://github.com/stevenleadbeater/LoyaltyCardApp/releases/download/v0.1.3/demo.webm</video>
       <caption>Managing loyalty cards</caption>
     </screenshot>
   </screenshots>
