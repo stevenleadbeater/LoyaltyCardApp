@@ -24,3 +24,7 @@ flatpak run com.github.loyaltycardapp.LoyaltyCardApp
 - **Build System:** Meson
 - **Packaging:** Flatpak
 - **Target:** GNOME mobile (Phosh) and desktop
+
+## License
+
+This project is licensed under the [GPL-3.0-or-later](COPYING) license.
