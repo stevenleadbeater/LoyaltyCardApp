@@ -31,6 +31,10 @@
 
   <screenshots>
     <screenshot type="default">
+      <image>https://github.com/stevenleadbeater/LoyaltyCardApp/releases/download/v0.1.6/Screenshot_20260405_170043.png</image>
+      <caption>Loyalty Cards app</caption>
+    </screenshot>
+    <screenshot>
       <video>https://github.com/stevenleadbeater/LoyaltyCardApp/releases/download/v0.1.3/demo.webm</video>
       <caption>Managing loyalty cards</caption>
     </screenshot>
