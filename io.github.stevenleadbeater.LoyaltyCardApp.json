@@ -97,8 +97,8 @@
                 {
                     "type" : "git",
                     "url" : "https://github.com/stevenleadbeater/LoyaltyCardApp.git",
-                    "tag" : "v0.1.7",
-                    "commit" : "4ed9f87fc0d6dffe344430a7de75bb03b1f2f1f6",
+                    "tag" : "v0.1.8",
+                    "commit" : "3eb531b9e86521b9af6c7a874e3a93c6e50de140",
                     "x-checker-data" : {
                         "type" : "git",
                         "tag-pattern" : "^v([\\d.]+)$"
