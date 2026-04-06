@@ -1,21 +1,21 @@
 """Scan a barcode from an image file.
 
 Lets the user pick an image (PNG, JPEG, etc.) via a file chooser
-and extracts barcodes using the zbar library.
+and extracts barcodes using the GStreamer zbar element.
 """
 
 import gi
 
+gi.require_version("Gst", "1.0")
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GdkPixbuf", "2.0")
 
-from gi.repository import Adw, GdkPixbuf, GLib, GObject, Gtk
+from gi.repository import Adw, GdkPixbuf, GLib, GObject, Gst, Gtk
 
 from loyalty_card_app.barcode_formats import BarcodeFormat
 
 # Map zbar symbol type names to our BarcodeFormat enum.
-# Matches the mapping in barcode_scanner.py.
 ZBAR_FORMAT_MAP = {
     "EAN-13": BarcodeFormat.EAN_13,
     "EAN-8": BarcodeFormat.EAN_8,
@@ -32,105 +32,73 @@ ZBAR_FORMAT_MAP = {
 
 
 def _scan_pixbuf(pixbuf):
-    """Scan a GdkPixbuf for barcodes using zbar.
+    """Scan a GdkPixbuf for barcodes using the GStreamer zbar element.
 
     Returns a list of (BarcodeFormat, str) tuples, or an empty list.
     """
-    import ctypes
-    import ctypes.util
+    Gst.init(None)
 
-    lib_path = ctypes.util.find_library("zbar")
-    if lib_path is None:
-        # Try common paths
-        for path in ["/app/lib/libzbar.so.0", "/usr/lib/libzbar.so.0",
-                     "/usr/lib/x86_64-linux-gnu/libzbar.so.0",
-                     "/usr/lib/aarch64-linux-gnu/libzbar.so.0"]:
-            try:
-                ctypes.CDLL(path)
-                lib_path = path
-                break
-            except OSError:
-                continue
-
-    if lib_path is None:
-        return []
-
-    zbar = ctypes.CDLL(lib_path)
-
-    # Set up function signatures
-    zbar.zbar_image_scanner_create.restype = ctypes.c_void_p
-    zbar.zbar_image_scanner_destroy.argtypes = [ctypes.c_void_p]
-    zbar.zbar_image_create.restype = ctypes.c_void_p
-    zbar.zbar_image_destroy.argtypes = [ctypes.c_void_p]
-    zbar.zbar_image_set_format.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
-    zbar.zbar_image_set_size.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint]
-    zbar.zbar_image_set_data.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p]
-    zbar.zbar_scan_image.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    zbar.zbar_scan_image.restype = ctypes.c_int
-    zbar.zbar_image_first_symbol.argtypes = [ctypes.c_void_p]
-    zbar.zbar_image_first_symbol.restype = ctypes.c_void_p
-    zbar.zbar_symbol_next.argtypes = [ctypes.c_void_p]
-    zbar.zbar_symbol_next.restype = ctypes.c_void_p
-    zbar.zbar_symbol_get_type.argtypes = [ctypes.c_void_p]
-    zbar.zbar_symbol_get_type.restype = ctypes.c_int
-    zbar.zbar_symbol_get_data.argtypes = [ctypes.c_void_p]
-    zbar.zbar_symbol_get_data.restype = ctypes.c_char_p
-    zbar.zbar_get_symbol_name.argtypes = [ctypes.c_int]
-    zbar.zbar_get_symbol_name.restype = ctypes.c_char_p
-
-    # Scale down large images — barcodes are scannable at much lower resolution
-    # and the pure-Python pixel loop is O(w*h), so limiting to ~1MP keeps it fast.
-    MAX_DIM = 1024
-    orig_w = pixbuf.get_width()
-    orig_h = pixbuf.get_height()
-    if orig_w > MAX_DIM or orig_h > MAX_DIM:
-        scale = MAX_DIM / max(orig_w, orig_h)
-        pixbuf = pixbuf.scale_simple(
-            int(orig_w * scale), int(orig_h * scale),
-            GdkPixbuf.InterpType.BILINEAR,
-        )
-
-    # Convert pixbuf to raw grayscale (Y800)
     width = pixbuf.get_width()
     height = pixbuf.get_height()
-    n_channels = pixbuf.get_n_channels()
-    rowstride = pixbuf.get_rowstride()
+
+    # Convert pixbuf to RGBA bytes for appsrc
+    if not pixbuf.get_has_alpha():
+        pixbuf = pixbuf.add_alpha(False, 0, 0, 0)
     pixels = pixbuf.get_pixels()
+    rowstride = pixbuf.get_rowstride()
 
-    # Convert to grayscale
-    gray = bytearray(width * height)
-    for y in range(height):
-        row_off = y * rowstride
-        for x in range(width):
-            o = row_off + x * n_channels
-            gray[y * width + x] = (pixels[o] * 299 + pixels[o + 1] * 587 + pixels[o + 2] * 114) // 1000
+    # Build pipeline: appsrc → videoconvert → zbar → fakesink
+    pipeline = Gst.parse_launch(
+        "appsrc name=src ! videoconvert ! zbar name=zbar ! fakesink"
+    )
+    if pipeline is None:
+        return []
 
-    gray_buf = (ctypes.c_ubyte * len(gray)).from_buffer(gray)
-
-    scanner = zbar.zbar_image_scanner_create()
-    image = zbar.zbar_image_create()
-
-    # Y800 format = ord('Y') | (ord('8') << 8) | (ord('0') << 16) | (ord('0') << 24)
-    fourcc = ord('Y') | (ord('8') << 8) | (ord('0') << 16) | (ord('0') << 24)
-    zbar.zbar_image_set_format(image, fourcc)
-    zbar.zbar_image_set_size(image, width, height)
-    zbar.zbar_image_set_data(image, gray_buf, len(gray), None)
+    src = pipeline.get_by_name("src")
+    src.set_property("caps", Gst.Caps.from_string(
+        f"video/x-raw,format=RGBA,width={width},height={height},"
+        f"framerate=1/1,pixel-aspect-ratio=1/1"
+    ))
+    src.set_property("format", Gst.Format.TIME)
 
     results = []
-    n = zbar.zbar_scan_image(scanner, image)
-    if n > 0:
-        sym = zbar.zbar_image_first_symbol(image)
-        while sym:
-            type_id = zbar.zbar_symbol_get_type(sym)
-            type_name = zbar.zbar_get_symbol_name(type_id).decode("utf-8", errors="replace")
-            data = zbar.zbar_symbol_get_data(sym).decode("utf-8", errors="replace")
-            fmt = ZBAR_FORMAT_MAP.get(type_name)
-            if fmt is not None and data:
-                results.append((fmt, data))
-            sym = zbar.zbar_symbol_next(sym)
 
-    zbar.zbar_image_destroy(image)
-    zbar.zbar_image_scanner_destroy(scanner)
+    bus = pipeline.get_bus()
+    bus.add_signal_watch()
+
+    def on_message(bus, message):
+        if message.type == Gst.MessageType.ELEMENT:
+            struct = message.get_structure()
+            if struct and struct.get_name() == "barcode":
+                barcode_type = struct.get_string("type")
+                barcode_data = struct.get_string("symbol")
+                fmt = ZBAR_FORMAT_MAP.get(barcode_type)
+                if fmt and barcode_data:
+                    results.append((fmt, barcode_data))
+
+    bus.connect("message", on_message)
+
+    pipeline.set_state(Gst.State.PLAYING)
+
+    # Push the pixbuf as a single frame
+    # Pack rows tightly (RGBA = 4 bytes per pixel)
+    if rowstride == width * 4:
+        data = pixels
+    else:
+        rows = [pixels[y * rowstride: y * rowstride + width * 4] for y in range(height)]
+        data = b"".join(rows)
+
+    buf = Gst.Buffer.new_wrapped(bytes(data))
+    buf.pts = 0
+    buf.duration = Gst.SECOND
+    src.emit("push-buffer", buf)
+    src.emit("end-of-stream")
+
+    # Wait for EOS or error (up to 5 seconds)
+    bus.timed_pop_filtered(5 * Gst.SECOND, Gst.MessageType.EOS | Gst.MessageType.ERROR)
+
+    pipeline.set_state(Gst.State.NULL)
+    bus.remove_signal_watch()
 
     return results
 
