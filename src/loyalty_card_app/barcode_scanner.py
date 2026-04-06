@@ -153,14 +153,6 @@ class BarcodeScannerPage(Adw.NavigationPage):
         Gst.init(None)
         self._status_label.set_label("Requesting camera access\u2026")
 
-        # Enumerate cameras on first start
-        if self._cameras is None:
-            self._cameras = enumerate_cameras()
-            self._selected_camera, self._camera_index = select_camera(
-                self._cameras
-            )
-            self._switch_btn.set_visible(len(self._cameras) > 1)
-
         # Try portal-based camera access first (works inside Flatpak sandbox)
         try:
             gi.require_version("Xdp", "1.0")
@@ -174,7 +166,13 @@ class BarcodeScannerPage(Adw.NavigationPage):
                 self._on_camera_portal_done,
             )
         except (ValueError, ImportError):
-            # Portal not available, use direct camera access
+            # Portal not available — enumerate now and use direct camera access
+            if self._cameras is None:
+                self._cameras = enumerate_cameras()
+                self._selected_camera, self._camera_index = select_camera(
+                    self._cameras
+                )
+                self._switch_btn.set_visible(len(self._cameras) > 1)
             if self._selected_camera:
                 src = self._selected_camera.create_source("camera")
             else:
@@ -193,6 +191,15 @@ class BarcodeScannerPage(Adw.NavigationPage):
                 "Camera permission denied. Check settings."
             )
             return
+
+        # Enumerate cameras now that portal access is granted so PipeWire
+        # exposes all devices (front + rear) to the sandbox.
+        if self._cameras is None:
+            self._cameras = enumerate_cameras()
+            self._selected_camera, self._camera_index = select_camera(
+                self._cameras
+            )
+            self._switch_btn.set_visible(len(self._cameras) > 1)
 
         try:
             pw_fd = portal.open_pipewire_remote_for_camera()

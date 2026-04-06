@@ -159,14 +159,6 @@ class CameraScannerPage(Adw.NavigationPage):
         self._stack.set_visible_child_name("viewfinder")
         self._hint.set_label("Requesting camera access\u2026")
 
-        # Enumerate cameras on first start
-        if self._cameras is None:
-            self._cameras = enumerate_cameras()
-            self._selected_camera, self._camera_index = select_camera(
-                self._cameras
-            )
-            self._switch_btn.set_visible(len(self._cameras) > 1)
-
         if _have_xdp_portal():
             self._request_camera_portal()
         else:
@@ -209,6 +201,15 @@ class CameraScannerPage(Adw.NavigationPage):
             self._stack.set_visible_child_name("error")
             return
 
+        # Enumerate cameras now that portal access is granted so PipeWire
+        # exposes all devices (front + rear) to the sandbox.
+        if self._cameras is None:
+            self._cameras = enumerate_cameras()
+            self._selected_camera, self._camera_index = select_camera(
+                self._cameras
+            )
+            self._switch_btn.set_visible(len(self._cameras) > 1)
+
         try:
             pw_fd = portal.open_pipewire_remote_for_camera()
         except GLib.Error:
@@ -226,6 +227,12 @@ class CameraScannerPage(Adw.NavigationPage):
 
     def _start_pipeline_fallback(self):
         """Start pipeline using device source or autovideosrc fallback."""
+        if self._cameras is None:
+            self._cameras = enumerate_cameras()
+            self._selected_camera, self._camera_index = select_camera(
+                self._cameras
+            )
+            self._switch_btn.set_visible(len(self._cameras) > 1)
         if self._selected_camera:
             src = self._selected_camera.create_source("camera")
         else:
