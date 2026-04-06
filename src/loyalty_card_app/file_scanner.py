@@ -61,44 +61,42 @@ def _scan_pixbuf(pixbuf):
     ))
     src.set_property("format", Gst.Format.TIME)
 
+    pipeline.set_state(Gst.State.PLAYING)
+
+    # Push the pixbuf as a single frame, packing rows tightly (RGBA = 4 bytes/pixel)
+    if rowstride == width * 4:
+        data = bytes(pixels)
+    else:
+        rows = [pixels[y * rowstride: y * rowstride + width * 4] for y in range(height)]
+        data = b"".join(rows)
+
+    buf = Gst.Buffer.new_wrapped(data)
+    buf.pts = 0
+    buf.duration = Gst.SECOND
+    src.emit("push-buffer", buf)
+    src.emit("end-of-stream")
+
+    # Poll the bus synchronously — signal handlers won't fire while blocking
     results = []
-
     bus = pipeline.get_bus()
-    bus.add_signal_watch()
-
-    def on_message(bus, message):
-        if message.type == Gst.MessageType.ELEMENT:
-            struct = message.get_structure()
+    deadline = 5 * Gst.SECOND
+    while True:
+        msg = bus.timed_pop(deadline)
+        if msg is None:
+            break
+        if msg.type == Gst.MessageType.EOS or msg.type == Gst.MessageType.ERROR:
+            break
+        if msg.type == Gst.MessageType.ELEMENT:
+            struct = msg.get_structure()
             if struct and struct.get_name() == "barcode":
                 barcode_type = struct.get_string("type")
                 barcode_data = struct.get_string("symbol")
                 fmt = ZBAR_FORMAT_MAP.get(barcode_type)
                 if fmt and barcode_data:
                     results.append((fmt, barcode_data))
-
-    bus.connect("message", on_message)
-
-    pipeline.set_state(Gst.State.PLAYING)
-
-    # Push the pixbuf as a single frame
-    # Pack rows tightly (RGBA = 4 bytes per pixel)
-    if rowstride == width * 4:
-        data = pixels
-    else:
-        rows = [pixels[y * rowstride: y * rowstride + width * 4] for y in range(height)]
-        data = b"".join(rows)
-
-    buf = Gst.Buffer.new_wrapped(bytes(data))
-    buf.pts = 0
-    buf.duration = Gst.SECOND
-    src.emit("push-buffer", buf)
-    src.emit("end-of-stream")
-
-    # Wait for EOS or error (up to 5 seconds)
-    bus.timed_pop_filtered(5 * Gst.SECOND, Gst.MessageType.EOS | Gst.MessageType.ERROR)
+        deadline = Gst.CLOCK_TIME_NONE  # subsequent pops don't need a timeout
 
     pipeline.set_state(Gst.State.NULL)
-    bus.remove_signal_watch()
 
     return results
 
