@@ -78,6 +78,18 @@ def _scan_pixbuf(pixbuf):
     zbar.zbar_get_symbol_name.argtypes = [ctypes.c_int]
     zbar.zbar_get_symbol_name.restype = ctypes.c_char_p
 
+    # Scale down large images — barcodes are scannable at much lower resolution
+    # and the pure-Python pixel loop is O(w*h), so limiting to ~1MP keeps it fast.
+    MAX_DIM = 1024
+    orig_w = pixbuf.get_width()
+    orig_h = pixbuf.get_height()
+    if orig_w > MAX_DIM or orig_h > MAX_DIM:
+        scale = MAX_DIM / max(orig_w, orig_h)
+        pixbuf = pixbuf.scale_simple(
+            int(orig_w * scale), int(orig_h * scale),
+            GdkPixbuf.InterpType.BILINEAR,
+        )
+
     # Convert pixbuf to raw grayscale (Y800)
     width = pixbuf.get_width()
     height = pixbuf.get_height()
@@ -88,12 +100,10 @@ def _scan_pixbuf(pixbuf):
     # Convert to grayscale
     gray = bytearray(width * height)
     for y in range(height):
+        row_off = y * rowstride
         for x in range(width):
-            offset = y * rowstride + x * n_channels
-            r = pixels[offset]
-            g = pixels[offset + 1]
-            b = pixels[offset + 2]
-            gray[y * width + x] = (r * 299 + g * 587 + b * 114) // 1000
+            o = row_off + x * n_channels
+            gray[y * width + x] = (pixels[o] * 299 + pixels[o + 1] * 587 + pixels[o + 2] * 114) // 1000
 
     gray_buf = (ctypes.c_ubyte * len(gray)).from_buffer(gray)
 
