@@ -28,10 +28,14 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
+      - name: Patch manifest to build from main branch
+        run: |
+          jq '(.modules[] | select(type == "object" and .name == "loyalty-card-app") | .sources[0]) |= {type: "git", url: .url, branch: "main"}' \
+            io.github.stevenleadbeater.LoyaltyCardApp.json > io.github.stevenleadbeater.LoyaltyCardApp.CI.json
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: io.github.stevenleadbeater.LoyaltyCardApp-${{ matrix.arch }}.flatpak
-          manifest-path: io.github.stevenleadbeater.LoyaltyCardApp.json
+          manifest-path: io.github.stevenleadbeater.LoyaltyCardApp.CI.json
           cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
           arch: ${{ matrix.arch }}
       - name: Upload bundle artifact
