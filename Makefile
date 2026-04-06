@@ -13,12 +13,12 @@
 
 APP_ID := io.github.stevenleadbeater.LoyaltyCardApp
 MANIFEST := $(APP_ID).json
-RUNTIME := org.gnome.Platform//48
-SDK := org.gnome.Sdk//48
+RUNTIME := org.gnome.Platform//50
+SDK := org.gnome.Sdk//50
 REPO := dist/repo
 BUILDDIR_X86_64 := build/x86_64
 BUNDLE_DIR := dist
-FLATHUB_IMAGE := ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+FLATHUB_IMAGE := ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
 
 .PHONY: build build-x86_64 build-x86_64-docker build-aarch64 bundle bundle-x86_64 bundle-aarch64 \
         install run clean setup-x86_64 setup-binfmt
@@ -56,9 +56,12 @@ build-aarch64: setup-binfmt
 	docker run --rm --privileged \
 		-v $(CURDIR):/src -w /src \
 		$(FLATHUB_IMAGE) \
-		bash -c 'flatpak-builder --repo=repo --disable-rofiles-fuse --force-clean \
+		bash -c 'flatpak install -y --noninteractive --arch=aarch64 flathub $(SDK) $(RUNTIME) && \
+			rm -rf .flatpak-builder-aarch64 && \
+			flatpak-builder --repo=repo --disable-rofiles-fuse --force-clean \
+			--state-dir=.flatpak-builder-aarch64 \
 			--arch=aarch64 build-dir $(MANIFEST) && \
-			flatpak build-bundle repo \
+			flatpak build-bundle --arch=aarch64 repo \
 			$(BUNDLE_DIR)/$(APP_ID)-aarch64.flatpak $(APP_ID)'
 
 # Create .flatpak bundle for x86_64
@@ -84,4 +87,4 @@ run:
 
 # Remove all build artifacts
 clean:
-	rm -rf build/ dist/ .flatpak-builder/
+	rm -rf build/ dist/ .flatpak-builder/ .flatpak-builder-aarch64/
