@@ -270,16 +270,14 @@ class FileScannerPage(Adw.NavigationPage):
             # User cancelled
             return
 
-        path = gfile.get_path()
-        if path is None:
-            return
+        self._scan_gfile(gfile)
 
-        self._scan_file(path)
-
-    def _scan_file(self, path):
+    def _scan_gfile(self, gfile):
         """Load the image and scan for barcodes."""
         try:
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file(path)
+            stream = gfile.read(None)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_stream(stream, None)
+            stream.close(None)
         except GLib.Error:
             self._error_page.set_title("Cannot Open Image")
             self._error_page.set_description(
